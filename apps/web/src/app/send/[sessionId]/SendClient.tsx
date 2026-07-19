@@ -86,7 +86,7 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
     if (status !== 'pairing') return;
     const id = setInterval(async () => {
       try {
-        const r = await fetch(`/api/approve?sessionId=${sessionId}&senderId=${senderIdRef.current}`);
+        const r = await fetch(`/api/presence?sessionId=${sessionId}&senderId=${senderIdRef.current}`);
         const d = await r.json();
         if (d.ok && d.approved && !startedRef.current) { startedRef.current = true; startRTC(); }
       } catch {}

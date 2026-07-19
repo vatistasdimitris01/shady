@@ -45,10 +45,10 @@ export async function unregisterDevice(deviceId: string): Promise<void> {
 
 export async function sendApproval(sessionId: string, senderId: string): Promise<boolean> {
   try {
-    const res = await fetch(`${BASE_URL}/api/approve`, {
+    const res = await fetch(`${BASE_URL}/api/presence`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, senderId }),
+      body: JSON.stringify({ sessionId, action: 'approve', approvedSenderId: senderId }),
       signal: AbortSignal.timeout(5000),
     });
     const json = await res.json();
@@ -60,7 +60,7 @@ export async function sendApproval(sessionId: string, senderId: string): Promise
 
 export async function pollApproval(sessionId: string, senderId: string): Promise<boolean> {
   try {
-    const res = await fetch(`${BASE_URL}/api/approve?sessionId=${encodeURIComponent(sessionId)}&senderId=${encodeURIComponent(senderId)}`, { signal: AbortSignal.timeout(5000) });
+    const res = await fetch(`${BASE_URL}/api/presence?sessionId=${encodeURIComponent(sessionId)}&senderId=${encodeURIComponent(senderId)}`, { signal: AbortSignal.timeout(5000) });
     const json = await res.json();
     return json.ok && json.approved;
   } catch {

@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { registerPresence, heartbeat, unregisterPresence, getReceiverBySession, getReceiverByCode, getNearbyByLocation, cleanupExpired, isNameTaken } from '@/lib/store';
+import { registerPresence, heartbeat, unregisterPresence, getReceiverBySession, getReceiverByCode, getNearbyByLocation, cleanupExpired, isNameTaken, approveSender, isApproved, unapproveSender } from '@/lib/store';
 import { z } from 'zod';
 
 const heartbeatSchema = z.object({
   deviceId: z.string().min(1),
-  displayName: z.string().min(1).max(64),
-  publicKey: z.string().min(1),
+  displayName: z.string().min(1).max(64).optional().default(''),
+  publicKey: z.string().min(1).optional().default(''),
   sessionId: z.string().min(1),
-  protocolVersion: z.string(),
-  capabilities: z.array(z.string()),
-  os: z.string(),
-  deviceType: z.enum(['desktop', 'laptop', 'phone', 'tablet', 'unknown']),
-  visibility: z.enum(['hidden', 'qr-only', 'nearby', 'nearby-5min']),
+  protocolVersion: z.string().optional().default(''),
+  capabilities: z.array(z.string()).optional().default([]),
+  os: z.string().optional().default(''),
+  deviceType: z.enum(['desktop', 'laptop', 'phone', 'tablet', 'unknown']).optional().default('unknown'),
+  visibility: z.enum(['hidden', 'qr-only', 'nearby', 'nearby-5min']).optional().default('qr-only'),
   pairingCode: z.string().optional().default(''),
   city: z.string().optional().default(''),
   region: z.string().optional().default(''),
   country: z.string().optional().default(''),
   countryCode: z.string().optional().default(''),
+  action: z.string().optional().default(''),
+  approvedSenderId: z.string().optional().default(''),
 });
 
 function getSourceIp(req: NextRequest): string {
@@ -32,6 +34,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = heartbeatSchema.parse(body);
     const ip = getSourceIp(req);
+
+    // Handle approval action
+    if (parsed.action === 'approve' && parsed.approvedSenderId) {
+      approveSender(parsed.sessionId, parsed.approvedSenderId);
+      // Also set on the presence entry for GET-based check
+      const entry = getReceiverBySession(parsed.sessionId);
+      if (entry) (entry as any).approvedSenderId = parsed.approvedSenderId;
+      return NextResponse.json({ ok: true, timestamp: Date.now() });
+    }
 
     const patch = { city: parsed.city, region: parsed.region, country: parsed.country, countryCode: parsed.countryCode, pairingCode: parsed.pairingCode };
 
@@ -98,6 +109,10 @@ export async function GET(req: NextRequest) {
 
   const sessionId = req.nextUrl.searchParams.get('sessionId');
   if (sessionId) {
+    const senderId = req.nextUrl.searchParams.get('senderId');
+    if (senderId) {
+      return NextResponse.json({ ok: true, approved: isApproved(sessionId, senderId) });
+    }
     const receiver = getReceiverBySession(sessionId);
     if (!receiver) {
       return NextResponse.json({ ok: false, error: 'Receiver not found' }, { status: 404 });
