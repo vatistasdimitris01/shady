@@ -34,14 +34,14 @@ export function useShadyState(offline: boolean) {
   const pairingCodeRef = useRef(pairingCode);
   useEffect(() => { pairingCodeRef.current = pairingCode; }, [pairingCode]);
 
-  const locationRef = useRef({ lat: 0, lng: 0 });
+  const locationRef = useRef({ city: '', region: '', country: '', countryCode: '' });
 
   useEffect(() => {
     if (offline) return;
     fetchGeoLocation().then((loc) => {
       locationRef.current = loc;
-      if (loc.lat !== 0) {
-        addLog('info', `Location: ${loc.lat.toFixed(2)}, ${loc.lng.toFixed(2)}`);
+      if (loc.city && loc.country) {
+        addLog('info', `${loc.city}, ${loc.country}`);
       }
     });
   }, [offline]);
@@ -92,8 +92,10 @@ export function useShadyState(offline: boolean) {
         deviceType: detectDeviceType(),
         visibility: 'qr-only',
         pairingCode: pairingCodeRef.current,
-        lat: loc.lat,
-        lng: loc.lng,
+        city: loc.city,
+        region: loc.region,
+        country: loc.country,
+        countryCode: loc.countryCode,
       });
     };
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { registerPresence, heartbeat, unregisterPresence, getReceiverBySession, getReceiverByCode, getNearbyReceiversByLocation, cleanupExpired } from '@/lib/store';
+import { registerPresence, heartbeat, unregisterPresence, getReceiverBySession, getReceiverByCode, getNearbyByLocation, cleanupExpired } from '@/lib/store';
 import { z } from 'zod';
 
 const heartbeatSchema = z.object({
@@ -13,8 +13,10 @@ const heartbeatSchema = z.object({
   deviceType: z.enum(['desktop', 'laptop', 'phone', 'tablet', 'unknown']),
   visibility: z.enum(['hidden', 'qr-only', 'nearby', 'nearby-5min']),
   pairingCode: z.string().optional().default(''),
-  lat: z.number().optional().default(0),
-  lng: z.number().optional().default(0),
+  city: z.string().optional().default(''),
+  region: z.string().optional().default(''),
+  country: z.string().optional().default(''),
+  countryCode: z.string().optional().default(''),
 });
 
 function getSourceIp(req: NextRequest): string {
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest) {
     const parsed = heartbeatSchema.parse(body);
     const ip = getSourceIp(req);
 
-    const patch = { lat: parsed.lat, lng: parsed.lng, pairingCode: parsed.pairingCode };
+    const patch = { city: parsed.city, region: parsed.region, country: parsed.country, countryCode: parsed.countryCode, pairingCode: parsed.pairingCode };
 
     if (!heartbeat(parsed.deviceId, ip, patch)) {
       registerPresence(parsed as any, ip);
@@ -81,10 +83,11 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const lat = req.nextUrl.searchParams.get('lat');
-  const lng = req.nextUrl.searchParams.get('lng');
-  if (lat && lng) {
-    const nearby = getNearbyReceiversByLocation(parseFloat(lat), parseFloat(lng));
+  const city = req.nextUrl.searchParams.get('city');
+  const country = req.nextUrl.searchParams.get('country');
+  const countryCode = req.nextUrl.searchParams.get('countryCode');
+  if (city && country && countryCode) {
+    const nearby = getNearbyByLocation({ city, country, countryCode });
     return NextResponse.json({ ok: true, receivers: nearby });
   }
 

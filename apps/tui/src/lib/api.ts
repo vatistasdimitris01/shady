@@ -11,8 +11,10 @@ export interface HeartbeatData {
   deviceType: string;
   visibility: string;
   pairingCode: string;
-  lat: number;
-  lng: number;
+  city: string;
+  region: string;
+  country: string;
+  countryCode: string;
 }
 
 export async function sendHeartbeat(data: HeartbeatData): Promise<{ ok: boolean; error?: string }> {
@@ -70,7 +72,7 @@ export async function pollSignals(sessionId: string, since?: number): Promise<{ 
   }
 }
 
-export async function fetchGeoLocation(): Promise<{ lat: number; lng: number }> {
+export async function fetchGeoLocation(): Promise<{ city: string; region: string; country: string; countryCode: string }> {
   const services = [
     'https://ipapi.co/json/',
     'https://ipwho.is/',
@@ -80,10 +82,12 @@ export async function fetchGeoLocation(): Promise<{ lat: number; lng: number }> 
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
       const d = await res.json();
-      const lat = d.latitude ?? d.lat ?? d.loc?.split(',')[0];
-      const lng = d.longitude ?? d.lng ?? d.lon ?? d.loc?.split(',')[1];
-      if (lat && lng) return { lat: parseFloat(lat), lng: parseFloat(lng) };
+      const city = d.city || d.region || '';
+      const region = d.region || d.region_name || '';
+      const country = d.country_name || d.country || '';
+      const countryCode = d.country_code || d.country || '';
+      if (city && country) return { city, region, country, countryCode };
     } catch {}
   }
-  return { lat: 0, lng: 0 };
+  return { city: '', region: '', country: '', countryCode: '' };
 }

@@ -2,7 +2,6 @@ import { createHmac, randomBytes } from 'crypto';
 
 const PRESENCE_TTL = 15_000;
 const SIGNAL_TTL = 30_000;
-const MAX_PROXIMITY_KM = 50;
 
 interface PresenceEntry {
   deviceId: string;
@@ -15,8 +14,10 @@ interface PresenceEntry {
   deviceType: string;
   visibility: string;
   pairingCode: string;
-  lat: number;
-  lng: number;
+  city: string;
+  region: string;
+  country: string;
+  countryCode: string;
   lastSeen: number;
   networkScope: string;
 }
@@ -44,17 +45,6 @@ function normalizeIp(ip: string): string {
   return ip;
 }
 
-function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 export function registerPresence(data: Omit<PresenceEntry, 'lastSeen' | 'networkScope'>, sourceIp: string): void {
   const scope = computeNetworkScope(normalizeIp(sourceIp));
   presence.set(data.deviceId, {
@@ -64,13 +54,15 @@ export function registerPresence(data: Omit<PresenceEntry, 'lastSeen' | 'network
   });
 }
 
-export function heartbeat(deviceId: string, sourceIp: string, patch?: { lat?: number; lng?: number; pairingCode?: string }): boolean {
+export function heartbeat(deviceId: string, sourceIp: string, patch?: { city?: string; region?: string; country?: string; countryCode?: string; pairingCode?: string }): boolean {
   const entry = presence.get(deviceId);
   if (!entry) return false;
   entry.lastSeen = Date.now();
   entry.networkScope = computeNetworkScope(normalizeIp(sourceIp));
-  if (patch?.lat !== undefined) entry.lat = patch.lat;
-  if (patch?.lng !== undefined) entry.lng = patch.lng;
+  if (patch?.city !== undefined) entry.city = patch.city;
+  if (patch?.region !== undefined) entry.region = patch.region;
+  if (patch?.country !== undefined) entry.country = patch.country;
+  if (patch?.countryCode !== undefined) entry.countryCode = patch.countryCode;
   if (patch?.pairingCode) entry.pairingCode = patch.pairingCode;
   return true;
 }
@@ -102,16 +94,23 @@ export function getReceiverBySession(sessionId: string): PresenceEntry | null {
   return null;
 }
 
-export function getNearbyReceiversByLocation(lat: number, lng: number): { deviceId: string; displayName: string; deviceType: string; os: string; lastSeen: number; ready: boolean; distance: number; pairingCode: string; sessionId: string }[] {
+export function getNearbyByLocation(query: { city: string; country: string; countryCode: string }): {
+  deviceId: string; displayName: string; deviceType: string; os: string; lastSeen: number; ready: boolean;
+  pairingCode: string; sessionId: string; city: string; region: string; country: string; match: 'city' | 'country'
+}[] {
   const now = Date.now();
-  const results: { deviceId: string; displayName: string; deviceType: string; os: string; lastSeen: number; ready: boolean; distance: number; pairingCode: string; sessionId: string }[] = [];
+  const results: any[] = [];
 
   for (const entry of presence.values()) {
     if (entry.lastSeen + PRESENCE_TTL < now) continue;
     if (entry.visibility === 'hidden') continue;
-    if (entry.lat === 0 && entry.lng === 0) continue;
-    const dist = haversine(lat, lng, entry.lat, entry.lng);
-    if (dist > MAX_PROXIMITY_KM) continue;
+    if (!entry.city || !entry.country) continue;
+
+    const sameCity = entry.city.toLowerCase() === query.city.toLowerCase() && entry.country.toLowerCase() === query.country.toLowerCase();
+    const sameCountry = entry.countryCode.toLowerCase() === query.countryCode.toLowerCase();
+
+    if (!sameCity && !sameCountry) continue;
+
     results.push({
       deviceId: entry.deviceId,
       displayName: entry.displayName,
@@ -119,13 +118,21 @@ export function getNearbyReceiversByLocation(lat: number, lng: number): { device
       os: entry.os,
       lastSeen: entry.lastSeen,
       ready: true,
-      distance: Math.round(dist * 10) / 10,
       pairingCode: entry.pairingCode,
       sessionId: entry.sessionId,
+      city: entry.city,
+      region: entry.region,
+      country: entry.country,
+      match: sameCity ? 'city' as const : 'country' as const,
     });
   }
 
-  results.sort((a, b) => a.distance - b.distance);
+  results.sort((a: any, b: any) => {
+    if (a.match === 'city' && b.match !== 'city') return -1;
+    if (a.match !== 'city' && b.match === 'city') return 1;
+    return a.city.localeCompare(b.city);
+  });
+
   return results;
 }
 
