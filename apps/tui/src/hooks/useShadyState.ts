@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { sendHeartbeat, unregisterDevice, pollSignals, sendSignal, sendApproval, fetchGeoLocation, checkNameTaken, fetchNearbyDevices } from '../lib/api.js';
 import { startLocalServer } from '../lib/localServer.js';
+import { setupWebRTC, handleIceCandidate, closeWebRTC } from '../lib/webrtc.js';
 import {
   generateDeviceId,
   generateSessionId,
@@ -155,6 +156,7 @@ export function useShadyState(offline: boolean) {
     return () => {
       clearInterval(heartbeat);
       unregisterDevice(identity.deviceId);
+      closeWebRTC();
     };
   }, [offline]);
 
@@ -184,6 +186,20 @@ export function useShadyState(offline: boolean) {
         if (msg.type === 'cancel') {
           setPendingRequest(null);
           addLog('warning', 'Sender cancelled');
+        }
+
+        if (msg.type === 'offer') {
+          const p = msg.payload as { sdp: string };
+          if (p.sdp) {
+            addLog('info', 'Establishing secure link...');
+            const sendSig = (type: string, payload: unknown) => sendSignal(identity.sessionId, identity.deviceId, type, payload);
+            setupWebRTC(p.sdp, downloadDir, sendSig, addLog);
+          }
+        }
+
+        if (msg.type === 'ice-candidate') {
+          const p = msg.payload as { candidate: string; mid: string };
+          if (p.candidate) handleIceCandidate(p.candidate, p.mid);
         }
       }
     }, SIGNAL_POLL_INTERVAL);

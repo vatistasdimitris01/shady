@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface Receiver { deviceId: string; displayName: string; deviceType: string; os: string; ready: boolean; localIp?: string; localPort?: number }
 
+const CS = 256 * 1024;
+
 export default function SendClient({ sessionId }: { sessionId: string }) {
   const [receiver, setReceiver] = useState<Receiver | null>(null);
   const [status, setStatus] = useState<'loading' | 'pairing' | 'connected' | 'sending' | 'done' | 'error'>('loading');
@@ -16,6 +18,9 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
   const approveRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const senderIdRef = useRef(crypto.randomUUID());
   const startedRef = useRef(false);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const chRef = useRef<RTCDataChannel | null>(null);
+  const iceBufferRef = useRef<any[]>([]);
 
   const signal = useCallback(async (type: string, payload: unknown) => {
     await fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -60,20 +65,15 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
     return () => clearInterval(id);
   }, [status, sessionId]);
 
-  const send = async (files: File[]) => {
-    const rec = receiver;
-    if (!rec?.localIp || !rec?.localPort) { setError('receiver not reachable'); setStatus('error'); return; }
-    setStatus('sending');
-    setFileStatuses(files.map((f) => ({ name: f.name, done: false })));
-    const total = files.reduce((a, f) => a + f.size, 0);
-    let sent = 0;
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      try {
-        const buf = await file.arrayBuffer();
+  const sendViaHttp = async (files: File[], rec: Receiver): Promise<boolean> => {
+    try {
+      const total = files.reduce((a, f) => a + f.size, 0);
+      let sent = 0;
+      for (let i = 0; i < files.length; i++) {
+        const buf = await files[i].arrayBuffer();
         const r = await fetch(`http://${rec.localIp}:${rec.localPort}/upload`, {
           method: 'POST',
-          headers: { 'X-Filename': encodeURIComponent(file.name), 'Content-Type': 'application/octet-stream' },
+          headers: { 'X-Filename': encodeURIComponent(files[i].name), 'Content-Type': 'application/octet-stream' },
           body: buf,
         });
         const d = await r.json();
@@ -81,13 +81,77 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
         sent += buf.byteLength;
         setFileStatuses((prev) => { const n = [...prev]; n[i] = { ...n[i], done: true }; return n; });
         setProgress(total > 0 ? (sent / total) * 100 : 0);
-      } catch (e: any) {
-        setError(`upload failed: ${e.message}`);
-        setStatus('error');
-        return;
       }
-    }
-    setStatus('done'); setProgress(100); setSentCount(files.length);
+      return true;
+    } catch { return false; }
+  };
+
+  const sendViaWebRTC = async (files: File[]) => {
+    return new Promise<boolean>((resolve) => {
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      pcRef.current = pc;
+      let chOpened = false;
+
+      pc.onicecandidate = (e) => {
+        if (e.candidate) signal('ice-candidate', { candidate: e.candidate.candidate, mid: e.candidate.sdpMid || '0' });
+      };
+
+      pc.ondatachannel = (e) => {
+        chRef.current = e.channel;
+        e.channel.binaryType = 'arraybuffer';
+        chOpened = true;
+      };
+
+      const ch = pc.createDataChannel('shady', { ordered: true });
+      chRef.current = ch;
+      ch.binaryType = 'arraybuffer';
+
+      ch.onopen = async () => {
+        const total = files.reduce((a, f) => a + f.size, 0);
+        let sent = 0;
+        ch.send(JSON.stringify({ type: 'manifest', files: files.map((f, i) => ({ fileId: `f${i}`, name: f.name, size: f.size, mimeType: f.type || 'application/octet-stream' })) }));
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          const tc = Math.ceil(f.size / CS);
+          for (let c = 0; c < tc; c++) {
+            const buf = await f.slice(c * CS, Math.min((c + 1) * CS, f.size)).arrayBuffer();
+            const hdr = new TextEncoder().encode(JSON.stringify({ t: 't0', f: `f${i}`, c, n: tc }));
+            const pkt = new Uint8Array(4 + hdr.length + buf.byteLength);
+            new DataView(pkt.buffer).setUint32(0, hdr.length, false);
+            pkt.set(hdr, 4); pkt.set(new Uint8Array(buf), 4 + hdr.length);
+            ch.send(pkt.buffer);
+            sent += buf.byteLength;
+            setProgress(total > 0 ? (sent / total) * 100 : 0);
+            while (ch.bufferedAmount > CS * 4) await new Promise(r => setTimeout(r, 10));
+          }
+          setFileStatuses((prev) => { const n = [...prev]; n[i] = { ...n[i], done: true }; return n; });
+        }
+        ch.send(JSON.stringify({ type: 'complete' }));
+        resolve(true);
+      };
+
+      ch.onerror = () => resolve(false);
+
+      const timeout = setTimeout(() => { if (!chOpened) { pc.close(); resolve(false); } }, 10000);
+
+      pc.createOffer().then((offer) => pc.setLocalDescription(offer)).then(() => {
+        signal('offer', { sdp: pc.localDescription!.sdp });
+      });
+    });
+  };
+
+  const send = async (files: File[]) => {
+    const rec = receiver;
+    if (!rec) return;
+    setStatus('sending');
+    setFileStatuses(files.map((f) => ({ name: f.name, done: false })));
+
+    let ok = false;
+    if (rec.localIp && rec.localPort) ok = await sendViaHttp(files, rec);
+    if (!ok) ok = await sendViaWebRTC(files);
+
+    if (ok) { setStatus('done'); setProgress(100); setSentCount(files.length); }
+    else { setError('transfer failed'); setStatus('error'); }
   };
 
   const handleDrop = (e: React.DragEvent) => {
