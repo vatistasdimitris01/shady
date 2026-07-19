@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-interface Receiver { deviceId: string; displayName: string; deviceType: string; os: string; ready: boolean }
+interface Receiver { deviceId: string; displayName: string; deviceType: string; os: string; ready: boolean; localIp?: string; localPort?: number }
 
 export default function SendClient({ sessionId }: { sessionId: string }) {
   const [receiver, setReceiver] = useState<Receiver | null>(null);
@@ -11,13 +11,8 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
   const [error, setError] = useState('');
   const [sentCount, setSentCount] = useState(0);
   const [dragging, setDragging] = useState(false);
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const chRef = useRef<RTCDataChannel | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const approveRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastSig = useRef(0);
-  const t0 = useRef(0);
-  const iceBufferRef = useRef<any[]>([]);
   const senderIdRef = useRef(crypto.randomUUID());
   const startedRef = useRef(false);
 
@@ -25,48 +20,6 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
     await fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId, from: 'browser', type, payload }) });
   }, [sessionId]);
-
-  const startRTC = useCallback(async () => {
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-    pcRef.current = pc;
-    pc.onicecandidate = (e) => { if (e.candidate) signal('ice-candidate', e.candidate.toJSON()); };
-    pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed') { setError('connection failed'); setStatus('error'); } };
-    const ch = pc.createDataChannel('shady', { ordered: true });
-    chRef.current = ch;
-    ch.binaryType = 'arraybuffer';
-    ch.onopen = () => setStatus('connected');
-    ch.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.type === 'hash-verified') setStatus('done'); } catch {} };
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    for (const c of iceBufferRef.current) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} }
-    iceBufferRef.current = [];
-    signal('offer', offer);
-  }, [signal]);
-
-  const handleSig = useCallback(async (msg: { type: string; payload: unknown }) => {
-    if (msg.type === 'pair-approve') { if (!startedRef.current) { startedRef.current = true; await startRTC(); } }
-    else if (msg.type === 'pair-reject') { setError('rejected'); setStatus('error'); }
-    else if (msg.type === 'answer' && pcRef.current) {
-      await pcRef.current.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
-      for (const c of iceBufferRef.current) { try { await pcRef.current.addIceCandidate(new RTCIceCandidate(c)); } catch {} }
-      iceBufferRef.current = [];
-    }
-    else if (msg.type === 'ice-candidate') {
-      if (pcRef.current && pcRef.current.remoteDescription) {
-        await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit)).catch(() => {});
-      } else {
-        iceBufferRef.current.push(msg.payload);
-      }
-    }
-  }, [startRTC]);
-
-  const poll = useCallback(async () => {
-    try {
-      const r = await fetch(`/api/signal?sessionId=${sessionId}&since=${lastSig.current}`);
-      const d = await r.json();
-      if (d.ok && d.messages?.length > 0) for (const m of d.messages) { lastSig.current = Math.max(lastSig.current, m.timestamp); handleSig(m); }
-    } catch {}
-  }, [sessionId, handleSig]);
 
   useEffect(() => {
     (async () => {
@@ -80,6 +33,17 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
     })();
   }, [sessionId, signal]);
 
+  const poll = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/signal?sessionId=${sessionId}&since=0`);
+      const d = await r.json();
+      if (d.ok && d.messages?.length > 0) for (const m of d.messages) {
+        if (m.type === 'pair-approve' && !startedRef.current) { startedRef.current = true; setStatus('connected'); }
+        if (m.type === 'pair-reject') { setError('rejected'); setStatus('error'); }
+      }
+    } catch {}
+  }, [sessionId]);
+
   useEffect(() => { if (status === 'pairing') pollRef.current = setInterval(poll, 1000); return () => { clearInterval(pollRef.current!); }; }, [status, poll]);
 
   useEffect(() => {
@@ -88,35 +52,37 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
       try {
         const r = await fetch(`/api/presence?sessionId=${sessionId}&senderId=${senderIdRef.current}`);
         const d = await r.json();
-        if (d.ok && d.approved && !startedRef.current) { startedRef.current = true; startRTC(); }
+        if (d.ok && d.approved && !startedRef.current) { startedRef.current = true; setStatus('connected'); }
       } catch {}
     }, 800);
     approveRef.current = id;
     return () => clearInterval(id);
-  }, [status, sessionId, startRTC]);
-
-  useEffect(() => () => { pcRef.current?.close(); }, []);
+  }, [status, sessionId]);
 
   const send = async (files: File[]) => {
-    const ch = chRef.current;
-    if (!ch || ch.readyState !== 'open') return;
-    setStatus('sending'); t0.current = Date.now();
-    const CS = 256 * 1024; let sent = 0; const total = files.reduce((a, f) => a + f.size, 0);
-    ch.send(JSON.stringify({ type: 'manifest', files: files.map((f, i) => ({ fileId: `f${i}`, name: f.name, size: f.size, mimeType: f.type || 'application/octet-stream' })) }));
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i]; const tc = Math.ceil(f.size / CS);
-      for (let c = 0; c < tc; c++) {
-        const buf = await f.slice(c * CS, Math.min((c + 1) * CS, f.size)).arrayBuffer();
-        const hdr = new TextEncoder().encode(JSON.stringify({ t: 't0', f: `f${i}`, c, n: tc }));
-        const pkt = new Uint8Array(4 + hdr.length + buf.byteLength);
-        new DataView(pkt.buffer).setUint32(0, hdr.length, false);
-        pkt.set(hdr, 4); pkt.set(new Uint8Array(buf), 4 + hdr.length);
-        ch.send(pkt.buffer); sent += buf.byteLength;
+    const rec = receiver;
+    if (!rec?.localIp || !rec?.localPort) { setError('receiver not reachable'); setStatus('error'); return; }
+    setStatus('sending');
+    const total = files.reduce((a, f) => a + f.size, 0);
+    let sent = 0;
+    for (const file of files) {
+      try {
+        const buf = await file.arrayBuffer();
+        const r = await fetch(`http://${rec.localIp}:${rec.localPort}/upload`, {
+          method: 'POST',
+          headers: { 'X-Filename': encodeURIComponent(file.name), 'Content-Type': 'application/octet-stream' },
+          body: buf,
+        });
+        const d = await r.json();
+        if (!d.ok) throw new Error(d.error || 'upload failed');
+        sent += buf.byteLength;
         setProgress(total > 0 ? (sent / total) * 100 : 0);
-        while (ch.bufferedAmount > CS * 4) await new Promise(r => setTimeout(r, 10));
+      } catch (e: any) {
+        setError(`upload failed: ${e.message}`);
+        setStatus('error');
+        return;
       }
     }
-    ch.send(JSON.stringify({ type: 'complete' }));
     setStatus('done'); setProgress(100); setSentCount(files.length);
   };
 
@@ -161,6 +127,7 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
             <div className="flex items-center gap-2 mb-5">
               <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
               <span className="text-sm font-medium text-green-600">{receiver?.displayName}</span>
+              {receiver?.localIp && <span className="text-xs text-gray-400">LAN</span>}
             </div>
             <label className={`block cursor-pointer border-2 border-dashed rounded-xl py-10 text-center transition-colors ${dragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
               <input type="file" multiple className="hidden" onChange={(e) => send(Array.from(e.target.files || []))} />

@@ -15,6 +15,8 @@ export interface HeartbeatData {
   region: string;
   country: string;
   countryCode: string;
+  localIp?: string;
+  localPort?: number;
 }
 
 export async function sendHeartbeat(data: HeartbeatData): Promise<{ ok: boolean; error?: string }> {

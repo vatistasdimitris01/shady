@@ -18,6 +18,8 @@ interface PresenceEntry {
   region: string;
   country: string;
   countryCode: string;
+  localIp: string;
+  localPort: number;
   lastSeen: number;
   networkScope: string;
 }
@@ -49,12 +51,14 @@ export function registerPresence(data: Omit<PresenceEntry, 'lastSeen' | 'network
   const scope = computeNetworkScope(normalizeIp(sourceIp));
   presence.set(data.deviceId, {
     ...data,
+    localIp: (data as any).localIp || '',
+    localPort: (data as any).localPort || 0,
     lastSeen: Date.now(),
     networkScope: scope,
   });
 }
 
-export function heartbeat(deviceId: string, sourceIp: string, patch?: { city?: string; region?: string; country?: string; countryCode?: string; pairingCode?: string }): boolean {
+export function heartbeat(deviceId: string, sourceIp: string, patch?: { city?: string; region?: string; country?: string; countryCode?: string; pairingCode?: string; localIp?: string; localPort?: number }): boolean {
   const entry = presence.get(deviceId);
   if (!entry) return false;
   entry.lastSeen = Date.now();
@@ -64,6 +68,8 @@ export function heartbeat(deviceId: string, sourceIp: string, patch?: { city?: s
   if (patch?.country !== undefined) entry.country = patch.country;
   if (patch?.countryCode !== undefined) entry.countryCode = patch.countryCode;
   if (patch?.pairingCode) entry.pairingCode = patch.pairingCode;
+  if (patch?.localIp !== undefined) entry.localIp = patch.localIp;
+  if (patch?.localPort !== undefined) entry.localPort = patch.localPort;
   return true;
 }
 
@@ -96,7 +102,8 @@ export function getReceiverBySession(sessionId: string): PresenceEntry | null {
 
 export function getNearbyByLocation(query: { city: string; country: string; countryCode: string }): {
   deviceId: string; displayName: string; deviceType: string; os: string; lastSeen: number; ready: boolean;
-  pairingCode: string; sessionId: string; city: string; region: string; country: string; match: 'city' | 'country'
+  pairingCode: string; sessionId: string; city: string; region: string; country: string; match: 'city' | 'country';
+  localIp: string; localPort: number;
 }[] {
   const now = Date.now();
   const results: any[] = [];
@@ -123,6 +130,8 @@ export function getNearbyByLocation(query: { city: string; country: string; coun
       city: entry.city,
       region: entry.region,
       country: entry.country,
+      localIp: entry.localIp,
+      localPort: entry.localPort,
       match: sameCity ? 'city' as const : 'country' as const,
     });
   }

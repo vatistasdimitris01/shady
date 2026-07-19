@@ -17,6 +17,8 @@ const heartbeatSchema = z.object({
   region: z.string().optional().default(''),
   country: z.string().optional().default(''),
   countryCode: z.string().optional().default(''),
+  localIp: z.string().optional().default(''),
+  localPort: z.number().optional().default(0),
   action: z.string().optional().default(''),
   approvedSenderId: z.string().optional().default(''),
 });
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, timestamp: Date.now() });
     }
 
-    const patch = { city: parsed.city, region: parsed.region, country: parsed.country, countryCode: parsed.countryCode, pairingCode: parsed.pairingCode };
+    const patch = { city: parsed.city, region: parsed.region, country: parsed.country, countryCode: parsed.countryCode, pairingCode: parsed.pairingCode, localIp: parsed.localIp, localPort: parsed.localPort };
 
     if (!heartbeat(parsed.deviceId, ip, patch)) {
       registerPresence(parsed as any, ip);
@@ -95,6 +97,8 @@ export async function GET(req: NextRequest) {
         deviceType: receiver.deviceType,
         os: receiver.os,
         ready: true,
+        localIp: receiver.localIp || undefined,
+        localPort: receiver.localPort || undefined,
       },
     });
   }
@@ -125,6 +129,8 @@ export async function GET(req: NextRequest) {
         deviceType: receiver.deviceType,
         os: receiver.os,
         ready: true,
+        localIp: receiver.localIp || undefined,
+        localPort: receiver.localPort || undefined,
       },
     });
   }

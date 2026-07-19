@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { sendHeartbeat, unregisterDevice, pollSignals, sendSignal, sendApproval, fetchGeoLocation, checkNameTaken, fetchNearbyDevices } from '../lib/api.js';
+import { startLocalServer } from '../lib/localServer.js';
 import {
   generateDeviceId,
   generateSessionId,
@@ -49,6 +50,15 @@ export function useShadyState(offline: boolean) {
   useEffect(() => { displayNameRef.current = displayName; }, [displayName]);
 
   const locationRef = useRef({ city: '', region: '', country: '', countryCode: '' });
+  const serverRef = useRef<{ ip: string; port: number } | null>(null);
+
+  useEffect(() => {
+    if (offline) return;
+    startLocalServer(process.cwd()).then((info) => {
+      serverRef.current = info;
+      addLog('info', `Server: ${info.ip}:${info.port}`);
+    }).catch((err) => addLog('error', `Server failed: ${err.message}`));
+  }, [offline]);
 
   useEffect(() => {
     if (offline) return;
@@ -111,6 +121,7 @@ export function useShadyState(offline: boolean) {
       const dn = displayNameRef.current;
       if (!dn) return Promise.resolve({ ok: false, error: 'name pending' });
       const loc = locationRef.current;
+      const sv = serverRef.current;
       return sendHeartbeat({
         deviceId: identity.deviceId,
         displayName: dn,
@@ -126,6 +137,8 @@ export function useShadyState(offline: boolean) {
         region: loc.region,
         country: loc.country,
         countryCode: loc.countryCode,
+        localIp: sv?.ip,
+        localPort: sv?.port,
       });
     };
 
