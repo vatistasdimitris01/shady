@@ -10,6 +10,7 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const [sentCount, setSentCount] = useState(0);
+  const [fileStatuses, setFileStatuses] = useState<{ name: string; done: boolean }[]>([]);
   const [dragging, setDragging] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const approveRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -63,9 +64,11 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
     const rec = receiver;
     if (!rec?.localIp || !rec?.localPort) { setError('receiver not reachable'); setStatus('error'); return; }
     setStatus('sending');
+    setFileStatuses(files.map((f) => ({ name: f.name, done: false })));
     const total = files.reduce((a, f) => a + f.size, 0);
     let sent = 0;
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       try {
         const buf = await file.arrayBuffer();
         const r = await fetch(`http://${rec.localIp}:${rec.localPort}/upload`, {
@@ -76,6 +79,7 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
         const d = await r.json();
         if (!d.ok) throw new Error(d.error || 'upload failed');
         sent += buf.byteLength;
+        setFileStatuses((prev) => { const n = [...prev]; n[i] = { ...n[i], done: true }; return n; });
         setProgress(total > 0 ? (sent / total) * 100 : 0);
       } catch (e: any) {
         setError(`upload failed: ${e.message}`);
@@ -127,7 +131,6 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
             <div className="flex items-center gap-2 mb-5">
               <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
               <span className="text-sm font-medium text-green-600">{receiver?.displayName}</span>
-              {receiver?.localIp && <span className="text-xs text-gray-400">LAN</span>}
             </div>
             <label className={`block cursor-pointer border-2 border-dashed rounded-xl py-10 text-center transition-colors ${dragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
               <input type="file" multiple className="hidden" onChange={(e) => send(Array.from(e.target.files || []))} />
@@ -139,11 +142,23 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
 
         {status === 'sending' && (
           <div className="fade-in">
-            <div className="mb-6">
+            <div className="mb-4">
               <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                 <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${progress}%` }}></div>
               </div>
-              <p className="text-right text-xs text-gray-400 mt-1.5">{progress.toFixed(0)}%</p>
+              <p className="text-right text-xs text-gray-400 mt-1">{progress.toFixed(0)}%</p>
+            </div>
+            <div className="space-y-1">
+              {fileStatuses.map((f, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  {f.done ? (
+                    <svg className="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                  ) : (
+                    <div className="w-3.5 h-3.5 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin shrink-0"></div>
+                  )}
+                  <span className="truncate text-gray-700">{f.name}</span>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -153,7 +168,7 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
             <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
               <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
             </div>
-            <p className="text-sm font-medium text-gray-900 mb-1">Sent</p>
+            <p className="text-sm font-medium text-gray-900 mb-1">Sent to {receiver?.displayName}</p>
             <p className="text-xs text-gray-400 mb-5">{sentCount} file{sentCount !== 1 ? 's' : ''}</p>
             <label className="cursor-pointer text-sm text-blue-500 hover:text-blue-600">
               send more

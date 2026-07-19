@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import TextInput from 'ink-text-input';
-import { Header } from './Header.js';
 import { QRCodePanel } from './QRCodePanel.js';
-import { PairingApproval } from './PairingApproval.js';
 import { ActivityLog } from './ActivityLog.js';
 import { useShadyState } from '../hooks/useShadyState.js';
 
@@ -22,14 +20,11 @@ export const ShadyApp: React.FC<ShadyAppProps> = ({ offline }) => {
       if (key.escape) { setShowSettings(false); setSettingsPath(state.downloadDir); }
       return;
     }
-
     if (key.ctrl && input === 'c') { exit(); return; }
-
     if (state.pendingRequest) {
       if (input === 'a' || input === 'A') state.approveRequest();
       if (input === 'r' || input === 'R') state.rejectRequest();
     }
-
     if (input === 'q' || input === 'Q') state.refreshQr();
     if (input === 's' || input === 'S') { setSettingsPath(state.downloadDir); setShowSettings(true); }
   });
@@ -44,25 +39,23 @@ export const ShadyApp: React.FC<ShadyAppProps> = ({ offline }) => {
     return (
       <Box flexDirection="column" padding={1}>
         <Text bold>Settings</Text>
-        <Text dimColor>Download folder path:</Text>
-        <Box marginY={1}>
-          <TextInput value={settingsPath} onChange={setSettingsPath} onSubmit={doneSettings} />
-        </Box>
-        <Text dimColor>Press Enter to save, Escape to cancel</Text>
+        <Text dimColor>Download folder:</Text>
+        <Box marginY={1}><TextInput value={settingsPath} onChange={setSettingsPath} onSubmit={doneSettings} /></Box>
+        <Text dimColor>Enter save  Escape cancel</Text>
       </Box>
     );
   }
 
+  const statusColor = offline ? 'yellow' : state.isConnected ? 'green' : 'red';
+  const statusText = offline ? 'Local' : state.isConnected ? 'Online' : 'Offline';
+
   return (
     <Box flexDirection="column" padding={1}>
-      <Header
-        displayName={state.displayName}
-        isConnected={state.isConnected}
-        offline={offline}
-      />
-
+      <Box>
+        <Text><Text bold>SHADY</Text><Text dimColor> · </Text><Text bold>{state.displayName}</Text><Text dimColor> · </Text><Text color={statusColor}>{statusText}</Text></Text>
+      </Box>
       <Box flexDirection="row" marginTop={1}>
-        <Box flexDirection="column" marginRight={2}>
+        <Box flexDirection="column">
           <QRCodePanel
             sessionId={state.identity.sessionId}
             secret={state.qrSecret}
@@ -72,18 +65,26 @@ export const ShadyApp: React.FC<ShadyAppProps> = ({ offline }) => {
             onRefresh={state.refreshQr}
           />
         </Box>
-        <Box flexDirection="column" flexGrow={1}>
+        <Box flexDirection="column" flexGrow={1} paddingLeft={2}>
           {state.pendingRequest ? (
-            <PairingApproval
-              request={state.pendingRequest}
-              onAccept={state.approveRequest}
-              onReject={state.rejectRequest}
-            />
+            <Box flexDirection="column">
+              <Text bold color="yellow">Incoming</Text>
+              <Text><Text bold>{state.pendingRequest.senderName}</Text> wants to connect</Text>
+              <Text dimColor>{state.pendingRequest.senderBrowser} · {state.pendingRequest.senderOS}</Text>
+              <Box marginTop={1}>
+                <Text bold>Code: </Text><Text color="yellow" bold>{state.pendingRequest.pairingCode}</Text>
+              </Box>
+              <Box marginTop={1}>
+                <Text><Text color="green" bold>[A]</Text><Text> Accept</Text></Text>
+                <Text>  </Text>
+                <Text><Text color="red" bold>[R]</Text><Text> Reject</Text></Text>
+              </Box>
+            </Box>
           ) : state.nearbyDevices.length > 0 ? (
             <Box flexDirection="column">
-              <Text bold>NEARBY</Text>
-              <Box flexDirection="column" marginTop={1}>
-                {state.nearbyDevices.slice(0, 5).map((d: any) => (
+              <Text bold color="blue">Nearby</Text>
+              <Box flexDirection="column">
+                {state.nearbyDevices.slice(0, 4).map((d: any) => (
                   <Text key={d.deviceId}>
                     <Text color="green">●</Text> {d.displayName} <Text dimColor>{d.os}</Text>
                   </Text>
@@ -91,31 +92,17 @@ export const ShadyApp: React.FC<ShadyAppProps> = ({ offline }) => {
               </Box>
             </Box>
           ) : (
-            <Box flexDirection="column">
-              <Text dimColor>Waiting for connections...</Text>
-            </Box>
+            <Text dimColor>Waiting...</Text>
           )}
         </Box>
       </Box>
-
-      <ActivityLog entries={state.logs} />
-
-      <Box justifyContent="center" marginTop={1}>
-        {state.pendingRequest ? (
-          <>
-            <Text><Text color="green" bold>[A]</Text><Text> Accept</Text></Text>
-            <Text>  </Text>
-            <Text><Text color="red" bold>[R]</Text><Text> Reject</Text></Text>
-          </>
-        ) : (
-          <>
-            <Text><Text color="yellow" bold>[Q]</Text><Text> New QR</Text></Text>
-            <Text>  </Text>
-            <Text><Text color="gray" bold>[S]</Text><Text> Settings</Text></Text>
-            <Text>  </Text>
-            <Text><Text color="gray" bold>[Ctrl+C]</Text><Text> Quit</Text></Text>
-          </>
-        )}
+      <ActivityLog entries={state.logs} maxEntries={3} />
+      <Box marginTop={1}>
+        <Text><Text color="yellow" bold>[Q]</Text><Text> QR</Text></Text>
+        <Text>  </Text>
+        <Text><Text color="gray" bold>[S]</Text><Text> Path</Text></Text>
+        <Text>  </Text>
+        <Text><Text color="gray" bold>[Ctrl+C]</Text><Text> Quit</Text></Text>
       </Box>
     </Box>
   );

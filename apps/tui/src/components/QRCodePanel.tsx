@@ -27,11 +27,8 @@ export const QRCodePanel: React.FC<QRCodePanelProps> = ({ sessionId, secret, pai
   }, [remaining, onRefresh]);
 
   return (
-    <Box flexDirection="column" alignItems="center">
-      <Text bold color="green">Scan</Text>
-      <Box marginY={1}>
-        <Text>{qrOutput}</Text>
-      </Box>
+    <Box flexDirection="column">
+      <Text>{qrOutput}</Text>
       <Text>
         <Text bold>Code: </Text>
         <Text color="yellow" bold>{pairingCode}</Text>
