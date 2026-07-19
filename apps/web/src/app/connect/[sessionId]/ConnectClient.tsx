@@ -6,7 +6,7 @@ interface Receiver { deviceId: string; displayName: string; deviceType: string; 
 
 export default function ConnectClient({ sessionId }: { sessionId: string }) {
   const [receiver, setReceiver] = useState<Receiver | null>(null);
-  const [status, setStatus] = useState<'loading' | 'pairing' | 'connected' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'pairing' | 'connecting' | 'connected' | 'error'>('loading');
   const [error, setError] = useState('');
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const chRef = useRef<RTCDataChannel | null>(null);
@@ -18,26 +18,24 @@ export default function ConnectClient({ sessionId }: { sessionId: string }) {
       body: JSON.stringify({ sessionId, from: 'browser', type, payload }) });
   }, [sessionId]);
 
-  const startRTC = useCallback(async () => {
+  const handleOffer = useCallback(async (offer: RTCSessionDescriptionInit) => {
     const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     pcRef.current = pc;
     pc.onicecandidate = (e) => { if (e.candidate) signal('ice-candidate', e.candidate.toJSON()); };
     pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed') { setError('connection failed'); setStatus('error'); } };
-    const ch = pc.createDataChannel('shady', { ordered: true });
-    chRef.current = ch;
-    ch.binaryType = 'arraybuffer';
-    ch.onopen = () => setStatus('connected');
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    signal('offer', offer);
+    pc.ondatachannel = (e) => { chRef.current = e.channel; e.channel.binaryType = 'arraybuffer'; e.channel.onopen = () => setStatus('connected'); };
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    signal('answer', answer);
+    setStatus('connecting');
   }, [signal]);
 
   const handleSig = useCallback(async (msg: { type: string; payload: unknown }) => {
-    if (msg.type === 'pair-approve') { setStatus('connected'); await startRTC(); }
+    if (msg.type === 'offer' && !pcRef.current) { setStatus('connecting'); await handleOffer(msg.payload as RTCSessionDescriptionInit); }
+    else if (msg.type === 'ice-candidate' && pcRef.current) await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit)).catch(() => {});
     else if (msg.type === 'pair-reject') { setError('rejected'); setStatus('error'); }
-    else if (msg.type === 'answer' && pcRef.current) await pcRef.current.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
-    else if (msg.type === 'ice-candidate' && pcRef.current) await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit));
-  }, [startRTC]);
+  }, [handleOffer]);
 
   const poll = useCallback(async () => {
     try {
@@ -58,7 +56,7 @@ export default function ConnectClient({ sessionId }: { sessionId: string }) {
     })();
   }, [sessionId]);
 
-  useEffect(() => { if (status === 'pairing') pollRef.current = setInterval(poll, 1000); return () => { clearInterval(pollRef.current!); }; }, [status, poll]);
+  useEffect(() => { if (status === 'pairing' || status === 'connecting') pollRef.current = setInterval(poll, 1000); return () => { clearInterval(pollRef.current!); }; }, [status, poll]);
   useEffect(() => () => { pcRef.current?.close(); }, []);
 
   return (
@@ -85,7 +83,14 @@ export default function ConnectClient({ sessionId }: { sessionId: string }) {
             <p className="text-base font-medium mb-0.5">{receiver.displayName}</p>
             <p className="text-xs text-gray-400 mb-5">{receiver.os}</p>
             <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-xs text-gray-400">waiting for approval</p>
+            <p className="text-xs text-gray-400">waiting for sender</p>
+          </div>
+        )}
+
+        {status === 'connecting' && (
+          <div className="text-center fade-in">
+            <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-xs text-gray-400">establishing connection</p>
           </div>
         )}
 
@@ -96,6 +101,7 @@ export default function ConnectClient({ sessionId }: { sessionId: string }) {
               <span className="text-sm font-medium text-green-600">connected</span>
             </div>
             <p className="text-xs text-gray-400">select files on the other page</p>
+            <a href="/" className="text-xs text-blue-500 mt-4 inline-block">back</a>
           </div>
         )}
       </div>
