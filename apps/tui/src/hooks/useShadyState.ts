@@ -41,6 +41,7 @@ export function useShadyState(offline: boolean) {
   const [pendingRequest, setPendingRequest] = useState<PairingRequest | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [nearbyDevices, setNearbyDevices] = useState<any[]>([]);
+  const [downloadDir, setDownloadDir] = useState(process.cwd());
   const lastSignalRef = useRef(0);
 
   const pairingCodeRef = useRef(pairingCode);
@@ -54,9 +55,9 @@ export function useShadyState(offline: boolean) {
 
   useEffect(() => {
     if (offline) return;
-    startLocalServer(process.cwd()).then((info) => {
+    startLocalServer(downloadDir).then((info) => {
       serverRef.current = info;
-      addLog('info', `Server: ${info.ip}:${info.port}`);
+      addLog('info', `Save to: ${info.ip}:${info.port}`);
     }).catch((err) => addLog('error', `Server failed: ${err.message}`));
   }, [offline]);
 
@@ -213,6 +214,8 @@ export function useShadyState(offline: boolean) {
     pendingRequest,
     logs,
     nearbyDevices,
+    downloadDir,
+    setDownloadDir,
     addLog,
     refreshQr,
     approveRequest,

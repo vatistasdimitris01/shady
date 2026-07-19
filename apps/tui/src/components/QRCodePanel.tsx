@@ -27,8 +27,8 @@ export const QRCodePanel: React.FC<QRCodePanelProps> = ({ sessionId, secret, pai
   }, [remaining, onRefresh]);
 
   return (
-    <Box flexDirection="column" alignItems="center" borderStyle="round" borderColor="green" padding={1}>
-      <Text bold color="green">SCAN TO CONNECT</Text>
+    <Box flexDirection="column" alignItems="center">
+      <Text bold color="green">Scan</Text>
       <Box marginY={1}>
         <Text>{qrOutput}</Text>
       </Box>
@@ -36,8 +36,7 @@ export const QRCodePanel: React.FC<QRCodePanelProps> = ({ sessionId, secret, pai
         <Text bold>Code: </Text>
         <Text color="yellow" bold>{pairingCode}</Text>
       </Text>
-      <Text dimColor marginTop={1}>Expires in {formatDuration(remaining)}</Text>
-      {offline && <Text dimColor>localhost:8787</Text>}
+      <Text dimColor>expires {formatDuration(remaining)}</Text>
     </Box>
   );
 };
