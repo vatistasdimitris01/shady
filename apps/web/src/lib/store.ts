@@ -2,6 +2,7 @@ import { createHmac, randomBytes } from 'crypto';
 
 const PRESENCE_TTL = 15_000;
 const SIGNAL_TTL = 30_000;
+const MAX_PROXIMITY_KM = 50;
 
 interface PresenceEntry {
   deviceId: string;
@@ -13,6 +14,9 @@ interface PresenceEntry {
   os: string;
   deviceType: string;
   visibility: string;
+  pairingCode: string;
+  lat: number;
+  lng: number;
   lastSeen: number;
   networkScope: string;
 }
@@ -40,6 +44,17 @@ function normalizeIp(ip: string): string {
   return ip;
 }
 
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export function registerPresence(data: Omit<PresenceEntry, 'lastSeen' | 'networkScope'>, sourceIp: string): void {
   const scope = computeNetworkScope(normalizeIp(sourceIp));
   presence.set(data.deviceId, {
@@ -49,11 +64,14 @@ export function registerPresence(data: Omit<PresenceEntry, 'lastSeen' | 'network
   });
 }
 
-export function heartbeat(deviceId: string, sourceIp: string): boolean {
+export function heartbeat(deviceId: string, sourceIp: string, patch?: { lat?: number; lng?: number; pairingCode?: string }): boolean {
   const entry = presence.get(deviceId);
   if (!entry) return false;
   entry.lastSeen = Date.now();
   entry.networkScope = computeNetworkScope(normalizeIp(sourceIp));
+  if (patch?.lat !== undefined) entry.lat = patch.lat;
+  if (patch?.lng !== undefined) entry.lng = patch.lng;
+  if (patch?.pairingCode) entry.pairingCode = patch.pairingCode;
   return true;
 }
 
@@ -64,26 +82,14 @@ export function unregisterPresence(deviceId: string): void {
   }
 }
 
-export function getNearbyReceivers(sourceIp: string): { deviceId: string; displayName: string; deviceType: string; os: string; lastSeen: number; ready: boolean }[] {
-  const scope = computeNetworkScope(normalizeIp(sourceIp));
+export function getReceiverByCode(code: string): PresenceEntry | null {
   const now = Date.now();
-  const results: { deviceId: string; displayName: string; deviceType: string; os: string; lastSeen: number; ready: boolean }[] = [];
-
   for (const entry of presence.values()) {
-    if (entry.lastSeen + PRESENCE_TTL < now) continue;
-    if (entry.networkScope !== scope) continue;
-    if (entry.visibility === 'hidden') continue;
-    results.push({
-      deviceId: entry.deviceId,
-      displayName: entry.displayName,
-      deviceType: entry.deviceType,
-      os: entry.os,
-      lastSeen: entry.lastSeen,
-      ready: true,
-    });
+    if (entry.pairingCode === code && entry.lastSeen + PRESENCE_TTL >= now) {
+      return entry;
+    }
   }
-
-  return results;
+  return null;
 }
 
 export function getReceiverBySession(sessionId: string): PresenceEntry | null {
@@ -94,6 +100,33 @@ export function getReceiverBySession(sessionId: string): PresenceEntry | null {
     }
   }
   return null;
+}
+
+export function getNearbyReceiversByLocation(lat: number, lng: number): { deviceId: string; displayName: string; deviceType: string; os: string; lastSeen: number; ready: boolean; distance: number; pairingCode: string; sessionId: string }[] {
+  const now = Date.now();
+  const results: { deviceId: string; displayName: string; deviceType: string; os: string; lastSeen: number; ready: boolean; distance: number; pairingCode: string; sessionId: string }[] = [];
+
+  for (const entry of presence.values()) {
+    if (entry.lastSeen + PRESENCE_TTL < now) continue;
+    if (entry.visibility === 'hidden') continue;
+    if (entry.lat === 0 && entry.lng === 0) continue;
+    const dist = haversine(lat, lng, entry.lat, entry.lng);
+    if (dist > MAX_PROXIMITY_KM) continue;
+    results.push({
+      deviceId: entry.deviceId,
+      displayName: entry.displayName,
+      deviceType: entry.deviceType,
+      os: entry.os,
+      lastSeen: entry.lastSeen,
+      ready: true,
+      distance: Math.round(dist * 10) / 10,
+      pairingCode: entry.pairingCode,
+      sessionId: entry.sessionId,
+    });
+  }
+
+  results.sort((a, b) => a.distance - b.distance);
+  return results;
 }
 
 export function pushSignal(msg: Omit<SignalEntry, 'id' | 'timestamp'>): SignalEntry {

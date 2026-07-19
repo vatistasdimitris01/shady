@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { registerPresence, heartbeat, unregisterPresence, getNearbyReceivers, getReceiverBySession, cleanupExpired } from '@/lib/store';
+import { registerPresence, heartbeat, unregisterPresence, getReceiverBySession, getReceiverByCode, getNearbyReceiversByLocation, cleanupExpired } from '@/lib/store';
 import { z } from 'zod';
 
 const heartbeatSchema = z.object({
@@ -12,6 +12,9 @@ const heartbeatSchema = z.object({
   os: z.string(),
   deviceType: z.enum(['desktop', 'laptop', 'phone', 'tablet', 'unknown']),
   visibility: z.enum(['hidden', 'qr-only', 'nearby', 'nearby-5min']),
+  pairingCode: z.string().optional().default(''),
+  lat: z.number().optional().default(0),
+  lng: z.number().optional().default(0),
 });
 
 function getSourceIp(req: NextRequest): string {
@@ -28,7 +31,9 @@ export async function POST(req: NextRequest) {
     const parsed = heartbeatSchema.parse(body);
     const ip = getSourceIp(req);
 
-    if (!heartbeat(parsed.deviceId, ip)) {
+    const patch = { lat: parsed.lat, lng: parsed.lng, pairingCode: parsed.pairingCode };
+
+    if (!heartbeat(parsed.deviceId, ip, patch)) {
       registerPresence(parsed as any, ip);
     }
 
@@ -56,8 +61,32 @@ export async function DELETE(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   cleanupExpired();
-  const ip = getSourceIp(req);
-  const receivers = getNearbyReceivers(ip);
+
+  const code = req.nextUrl.searchParams.get('code');
+  if (code) {
+    const receiver = getReceiverByCode(code);
+    if (!receiver) {
+      return NextResponse.json({ ok: false, error: 'No receiver with that code' }, { status: 404 });
+    }
+    return NextResponse.json({
+      ok: true,
+      sessionId: receiver.sessionId,
+      receiver: {
+        deviceId: receiver.deviceId,
+        displayName: receiver.displayName,
+        deviceType: receiver.deviceType,
+        os: receiver.os,
+        ready: true,
+      },
+    });
+  }
+
+  const lat = req.nextUrl.searchParams.get('lat');
+  const lng = req.nextUrl.searchParams.get('lng');
+  if (lat && lng) {
+    const nearby = getNearbyReceiversByLocation(parseFloat(lat), parseFloat(lng));
+    return NextResponse.json({ ok: true, receivers: nearby });
+  }
 
   const sessionId = req.nextUrl.searchParams.get('sessionId');
   if (sessionId) {
@@ -77,5 +106,5 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ ok: true, receivers });
+  return NextResponse.json({ ok: true, receivers: [] });
 }

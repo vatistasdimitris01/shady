@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { sendHeartbeat, unregisterDevice, pollSignals, sendSignal } from '../lib/api.js';
+import { sendHeartbeat, unregisterDevice, pollSignals, sendSignal, fetchGeoLocation } from '../lib/api.js';
 import {
   generateDeviceId,
   generateSessionId,
@@ -29,7 +29,18 @@ export function useShadyState(offline: boolean) {
   const [isConnected, setIsConnected] = useState(false);
   const [pendingRequest, setPendingRequest] = useState<PairingRequest | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [location, setLocation] = useState({ lat: 0, lng: 0 });
   const lastSignalRef = useRef(0);
+
+  useEffect(() => {
+    if (offline) return;
+    fetchGeoLocation().then((loc) => {
+      setLocation(loc);
+      if (loc.lat !== 0) {
+        addLog('info', `Location: ${loc.lat.toFixed(2)}, ${loc.lng.toFixed(2)}`);
+      }
+    });
+  }, [offline]);
 
   const addLog = useCallback((type: LogEntry['type'], message: string) => {
     setLogs((prev) => [...prev.slice(-20), { id: `log-${Date.now()}-${Math.random()}`, timestamp: Date.now(), type, message }]);
@@ -64,21 +75,7 @@ export function useShadyState(offline: boolean) {
 
     addLog('info', `Ready: ${identity.displayName}`);
 
-    const heartbeat = setInterval(() => {
-      sendHeartbeat({
-        deviceId: identity.deviceId,
-        displayName: identity.displayName,
-        publicKey: identity.publicKey,
-        sessionId: identity.sessionId,
-        protocolVersion: '1.0.0',
-        capabilities: ['files'],
-        os: detectOS(),
-        deviceType: detectDeviceType(),
-        visibility: 'qr-only',
-      }).then((ok) => setIsConnected(ok));
-    }, HEARTBEAT_INTERVAL);
-
-    sendHeartbeat({
+    const doHeartbeat = () => sendHeartbeat({
       deviceId: identity.deviceId,
       displayName: identity.displayName,
       publicKey: identity.publicKey,
@@ -88,7 +85,13 @@ export function useShadyState(offline: boolean) {
       os: detectOS(),
       deviceType: detectDeviceType(),
       visibility: 'qr-only',
-    }).then((ok) => {
+      pairingCode,
+      lat: location.lat,
+      lng: location.lng,
+    }).then((ok) => setIsConnected(ok));
+
+    const heartbeat = setInterval(doHeartbeat, HEARTBEAT_INTERVAL);
+    doHeartbeat().then((ok) => {
       setIsConnected(ok);
       addLog(ok ? 'success' : 'error', ok ? 'Connected' : 'Connection failed');
     });
@@ -97,7 +100,7 @@ export function useShadyState(offline: boolean) {
       clearInterval(heartbeat);
       unregisterDevice(identity.deviceId);
     };
-  }, [offline, identity.deviceId]);
+  }, [offline, identity.deviceId, pairingCode, location.lat, location.lng]);
 
   useEffect(() => {
     if (offline) return;
@@ -149,6 +152,7 @@ export function useShadyState(offline: boolean) {
     sessionExpiresAt,
     qrSecret,
     pairingCode,
+    location,
     isConnected,
     pendingRequest,
     logs,
