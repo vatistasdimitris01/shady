@@ -29,13 +29,17 @@ export function useShadyState(offline: boolean) {
   const [isConnected, setIsConnected] = useState(false);
   const [pendingRequest, setPendingRequest] = useState<PairingRequest | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [location, setLocation] = useState({ lat: 0, lng: 0 });
   const lastSignalRef = useRef(0);
+
+  const pairingCodeRef = useRef(pairingCode);
+  useEffect(() => { pairingCodeRef.current = pairingCode; }, [pairingCode]);
+
+  const locationRef = useRef({ lat: 0, lng: 0 });
 
   useEffect(() => {
     if (offline) return;
     fetchGeoLocation().then((loc) => {
-      setLocation(loc);
+      locationRef.current = loc;
       if (loc.lat !== 0) {
         addLog('info', `Location: ${loc.lat.toFixed(2)}, ${loc.lng.toFixed(2)}`);
       }
@@ -75,32 +79,38 @@ export function useShadyState(offline: boolean) {
 
     addLog('info', `Ready: ${identity.displayName}`);
 
-    const doHeartbeat = () => sendHeartbeat({
-      deviceId: identity.deviceId,
-      displayName: identity.displayName,
-      publicKey: identity.publicKey,
-      sessionId: identity.sessionId,
-      protocolVersion: '1.0.0',
-      capabilities: ['files'],
-      os: detectOS(),
-      deviceType: detectDeviceType(),
-      visibility: 'qr-only',
-      pairingCode,
-      lat: location.lat,
-      lng: location.lng,
-    }).then((ok) => setIsConnected(ok));
+    const doHeartbeat = () => {
+      const loc = locationRef.current;
+      return sendHeartbeat({
+        deviceId: identity.deviceId,
+        displayName: identity.displayName,
+        publicKey: identity.publicKey,
+        sessionId: identity.sessionId,
+        protocolVersion: '1.0.0',
+        capabilities: ['files'],
+        os: detectOS(),
+        deviceType: detectDeviceType(),
+        visibility: 'qr-only',
+        pairingCode: pairingCodeRef.current,
+        lat: loc.lat,
+        lng: loc.lng,
+      });
+    };
 
-    const heartbeat = setInterval(doHeartbeat, HEARTBEAT_INTERVAL);
-    doHeartbeat().then((ok) => {
-      setIsConnected(ok);
-      addLog(ok ? 'success' : 'error', ok ? 'Connected' : 'Connection failed');
+    doHeartbeat().then((r) => {
+      setIsConnected(r.ok);
+      addLog(r.ok ? 'success' : 'error', r.ok ? 'Connected' : r.error ? `Connection failed: ${r.error}` : 'Connection failed');
     });
+
+    const heartbeat = setInterval(() => {
+      doHeartbeat().then((r) => setIsConnected(r.ok));
+    }, HEARTBEAT_INTERVAL);
 
     return () => {
       clearInterval(heartbeat);
       unregisterDevice(identity.deviceId);
     };
-  }, [offline, identity.deviceId, pairingCode, location.lat, location.lng]);
+  }, [offline]);
 
   useEffect(() => {
     if (offline) return;
@@ -152,7 +162,6 @@ export function useShadyState(offline: boolean) {
     sessionExpiresAt,
     qrSecret,
     pairingCode,
-    location,
     isConnected,
     pendingRequest,
     logs,

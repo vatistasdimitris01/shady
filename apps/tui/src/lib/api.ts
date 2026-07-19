@@ -15,7 +15,7 @@ export interface HeartbeatData {
   lng: number;
 }
 
-export async function sendHeartbeat(data: HeartbeatData): Promise<boolean> {
+export async function sendHeartbeat(data: HeartbeatData): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch(`${BASE_URL}/api/presence`, {
       method: 'POST',
@@ -24,9 +24,9 @@ export async function sendHeartbeat(data: HeartbeatData): Promise<boolean> {
       signal: AbortSignal.timeout(5000),
     });
     const json = await res.json();
-    return json.ok === true;
-  } catch {
-    return false;
+    return { ok: json.ok === true, error: json.error || (json.ok ? undefined : `HTTP ${res.status}`) };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'network error' };
   }
 }
 

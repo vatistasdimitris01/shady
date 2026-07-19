@@ -10,6 +10,7 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const [sentCount, setSentCount] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const chRef = useRef<RTCDataChannel | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -89,46 +90,52 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
     setStatus('done'); setProgress(100); setSentCount(files.length);
   };
 
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragging(false);
+    send(Array.from(e.dataTransfer.files));
+  };
+
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-[280px]">
-        <h1 className="text-center text-lg font-medium tracking-tight mb-8">shady</h1>
+    <div className="min-h-dvh flex flex-col items-center justify-center px-4"
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}>
+      <div className="w-full max-w-sm">
+        <p className="text-sm text-gray-400 mb-8 text-center">shady</p>
 
         {status === 'loading' && (
           <div className="text-center fade-in">
-            <div className="w-5 h-5 border-2 border-zinc-700 border-t-lime-400 rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-zinc-500 text-xs">connecting</p>
+            <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-sm text-gray-400">connecting</p>
           </div>
         )}
 
         {status === 'error' && (
           <div className="text-center fade-in">
-            <p className="text-zinc-600 text-xs mb-3">{error}</p>
-            <a href="/" className="text-lime-400 text-xs">← back</a>
+            <p className="text-sm text-gray-500 mb-4">{error}</p>
+            <a href="/" className="text-sm text-blue-500">back</a>
           </div>
         )}
 
         {status === 'pairing' && receiver && (
           <div className="text-center fade-in">
-            <div className="w-5 h-5 border-2 border-zinc-700 border-t-lime-400 rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-sm font-medium mb-0.5">{receiver.displayName}</p>
-            <p className="text-zinc-500 text-[10px] mb-4">{receiver.os}</p>
-            <p className="text-zinc-600 text-[10px]">waiting for approval</p>
+            <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-base font-medium mb-0.5">{receiver.displayName}</p>
+            <p className="text-xs text-gray-400 mb-4">{receiver.os}</p>
+            <p className="text-xs text-gray-400">waiting for approval</p>
           </div>
         )}
 
         {status === 'connected' && (
           <div className="fade-in">
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-1.5 h-1.5 rounded-full bg-lime-400 pulse"></div>
-              <span className="text-xs font-medium">{receiver?.displayName}</span>
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
+              <span className="text-sm font-medium text-green-600">{receiver?.displayName}</span>
             </div>
-            <label className="block cursor-pointer">
-              <div className="border border-dashed border-zinc-800 hover:border-zinc-700 rounded-xl py-8 text-center transition-colors">
-                <p className="text-2xl font-light text-zinc-700 mb-1">+</p>
-                <p className="text-xs text-zinc-500">select files</p>
-              </div>
+            <label className={`block cursor-pointer border-2 border-dashed rounded-xl py-10 text-center transition-colors ${dragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
               <input type="file" multiple className="hidden" onChange={(e) => send(Array.from(e.target.files || []))} />
+              <p className="text-3xl font-light text-gray-300 mb-1">+</p>
+              <p className="text-xs text-gray-400">click or drop files</p>
             </label>
           </div>
         )}
@@ -136,19 +143,22 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
         {status === 'sending' && (
           <div className="fade-in">
             <div className="mb-6">
-              <div className="w-full h-0.5 bg-zinc-800 rounded-full overflow-hidden">
-                <div className="h-full bg-lime-400 transition-all duration-300" style={{ width: `${progress}%` }}></div>
+              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${progress}%` }}></div>
               </div>
-              <p className="text-right text-[10px] text-zinc-600 mt-1.5">{progress.toFixed(0)}%</p>
+              <p className="text-right text-xs text-gray-400 mt-1.5">{progress.toFixed(0)}%</p>
             </div>
           </div>
         )}
 
         {status === 'done' && (
           <div className="text-center fade-in">
-            <p className="text-lime-400 text-sm font-medium mb-1">sent</p>
-            <p className="text-zinc-600 text-[10px] mb-6">{sentCount} file{sentCount !== 1 ? 's' : ''}</p>
-            <label className="cursor-pointer text-zinc-600 text-xs hover:text-zinc-400 transition-colors">
+            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+              <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <p className="text-sm font-medium text-gray-900 mb-1">Sent</p>
+            <p className="text-xs text-gray-400 mb-5">{sentCount} file{sentCount !== 1 ? 's' : ''}</p>
+            <label className="cursor-pointer text-sm text-blue-500 hover:text-blue-600">
               send more
               <input type="file" multiple className="hidden" onChange={(e) => { setStatus('connected'); send(Array.from(e.target.files || [])); }} />
             </label>

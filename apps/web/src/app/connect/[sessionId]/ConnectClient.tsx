@@ -62,46 +62,40 @@ export default function ConnectClient({ sessionId }: { sessionId: string }) {
   useEffect(() => () => { pcRef.current?.close(); }, []);
 
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center px-6">
-      <div className="w-full max-w-[280px]">
-        <h1 className="text-center text-lg font-medium tracking-tight mb-8">shady</h1>
+    <div className="min-h-dvh flex flex-col items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <p className="text-sm text-gray-400 mb-8 text-center">shady</p>
 
         {status === 'loading' && (
           <div className="text-center fade-in">
-            <div className="w-5 h-5 border-2 border-zinc-700 border-t-lime-400 rounded-full animate-spin mx-auto mb-3"></div>
-            <p className="text-zinc-500 text-xs">looking up receiver</p>
+            <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-sm text-gray-400">looking up receiver</p>
           </div>
         )}
 
         {status === 'error' && (
           <div className="text-center fade-in">
-            <p className="text-zinc-600 text-xs mb-3">{error}</p>
-            <a href="/" className="text-lime-400 text-xs">← back</a>
+            <p className="text-sm text-gray-500 mb-4">{error}</p>
+            <a href="/" className="text-sm text-blue-500 hover:text-blue-600">back</a>
           </div>
         )}
 
         {status === 'pairing' && receiver && (
           <div className="text-center fade-in">
-            <p className="text-sm font-medium mb-0.5">{receiver.displayName}</p>
-            <p className="text-zinc-500 text-[10px] mb-4">{receiver.os}</p>
-            <div className="w-5 h-5 border-2 border-zinc-700 border-t-lime-400 rounded-full animate-spin mx-auto mb-2"></div>
-            <p className="text-zinc-600 text-[10px]">waiting for approval</p>
+            <p className="text-base font-medium mb-0.5">{receiver.displayName}</p>
+            <p className="text-xs text-gray-400 mb-5">{receiver.os}</p>
+            <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin mx-auto mb-3"></div>
+            <p className="text-xs text-gray-400">waiting for approval</p>
           </div>
         )}
 
         {status === 'connected' && (
           <div className="text-center fade-in">
-            <div className="flex items-center justify-center gap-2 mb-6">
-              <div className="w-1.5 h-1.5 rounded-full bg-lime-400 pulse"></div>
-              <span className="text-xs font-medium text-lime-400">connected</span>
+            <div className="flex items-center justify-center gap-2 mb-5">
+              <div className="w-2 h-2 rounded-full bg-green-500 pulse"></div>
+              <span className="text-sm font-medium text-green-600">connected</span>
             </div>
-            <label className="cursor-pointer">
-              <div className="border border-dashed border-zinc-800 hover:border-zinc-700 rounded-xl py-8 text-center transition-colors">
-                <p className="text-2xl font-light text-zinc-700 mb-1">+</p>
-                <p className="text-xs text-zinc-500">select files</p>
-              </div>
-              <input type="file" multiple className="hidden" onChange={(e) => {}} />
-            </label>
+            <p className="text-xs text-gray-400">select files on the other page</p>
           </div>
         )}
       </div>

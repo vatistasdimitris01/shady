@@ -1,45 +1,38 @@
 export default function AboutPage() {
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-[320px]">
-        <a href="/" className="text-zinc-700 text-xs hover:text-zinc-500 transition-colors mb-6 inline-block">← back</a>
-        <h1 className="text-lg font-medium tracking-tight mb-1">about</h1>
-        <p className="text-zinc-500 text-xs mb-8">a suspiciously fast local drop</p>
+    <div className="min-h-dvh flex flex-col items-center px-4 py-12">
+      <div className="w-full max-w-sm">
+        <a href="/" className="text-xs text-gray-400 hover:text-gray-600 mb-6 inline-block">back</a>
+        <h1 className="text-lg font-medium mb-1">About</h1>
+        <p className="text-sm text-gray-400 mb-8">A fast local drop</p>
 
-        <div className="space-y-6 text-xs text-zinc-400 leading-relaxed">
-          <p>SHADY lets any nearby browser send files directly to your terminal. No accounts, no cloud, no fuss.</p>
+        <div className="space-y-5 text-sm text-gray-600 leading-relaxed">
+          <p>Shady lets any nearby browser send files directly to your terminal. No accounts, no cloud.</p>
 
           <div>
-            <p className="text-zinc-200 font-medium mb-1">how it works</p>
-            <p className="text-zinc-500">Start the receiver on your computer. Open this site on your phone. Scan the QR code or enter the pairing code. Approve the connection. Drop files. They transfer directly over your local network via WebRTC — encrypted, fast, private.</p>
+            <p className="text-gray-900 font-medium mb-1">How it works</p>
+            <p className="text-gray-500">Start the receiver on your computer. Open this site on your phone. Scan the QR code or enter the pairing code. Approve the connection. Drop files. They transfer directly over your local network via WebRTC.</p>
           </div>
 
           <div>
-            <p className="text-zinc-200 font-medium mb-1">architecture</p>
-            <div className="text-zinc-500 space-y-1">
-              <p>1. TUI generates ephemeral keys</p>
-              <p>2. Heartbeats register presence via Vercel</p>
-              <p>3. Sender opens this site, sees receivers</p>
-              <p>4. Pairing code confirms identity on both devices</p>
-              <p>5. WebRTC data channel establishes direct link</p>
-              <p>6. Files transfer chunk by chunk, never touching a server</p>
-              <p>7. SHA-256 verifies integrity</p>
+            <p className="text-gray-900 font-medium mb-1">Architecture</p>
+            <div className="text-gray-500 space-y-0.5">
+              <p>TUI generates ephemeral keys</p>
+              <p>Heartbeats register presence via Vercel</p>
+              <p>Sender opens this site, sees nearby receivers</p>
+              <p>Pairing code confirms identity on both devices</p>
+              <p>WebRTC data channel establishes direct link</p>
+              <p>Files transfer chunk by chunk, never touching a server</p>
+              <p>SHA-256 verifies integrity</p>
             </div>
           </div>
 
           <div>
-            <p className="text-zinc-200 font-medium mb-1">protocol</p>
-            <div className="text-zinc-500 space-y-0.5">
-              <p>Version 1.0.0 · WebRTC DTLS · 256 KiB chunks · SHA-256</p>
-            </div>
+            <p className="text-gray-900 font-medium mb-1">Platforms</p>
+            <p className="text-gray-500">macOS, Linux, Windows (receiver) · Any modern browser (sender)</p>
           </div>
 
-          <div>
-            <p className="text-zinc-200 font-medium mb-1">platforms</p>
-            <p className="text-zinc-500">macOS, Linux, Windows (receiver) · Any modern browser (sender)</p>
-          </div>
-
-          <p className="text-zinc-600 text-[10px]">MIT license · open source</p>
+          <p className="text-xs text-gray-300">MIT license · open source</p>
         </div>
       </div>
     </div>

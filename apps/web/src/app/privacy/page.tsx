@@ -1,30 +1,30 @@
 export default function PrivacyPage() {
   return (
-    <div className="min-h-dvh flex flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-[320px]">
-        <a href="/" className="text-zinc-700 text-xs hover:text-zinc-500 transition-colors mb-6 inline-block">← back</a>
-        <h1 className="text-lg font-medium tracking-tight mb-1">privacy</h1>
-        <p className="text-zinc-500 text-xs mb-8">nothing is stored</p>
+    <div className="min-h-dvh flex flex-col items-center px-4 py-12">
+      <div className="w-full max-w-sm">
+        <a href="/" className="text-xs text-gray-400 hover:text-gray-600 mb-6 inline-block">back</a>
+        <h1 className="text-lg font-medium mb-1">Privacy</h1>
+        <p className="text-sm text-gray-400 mb-8">Nothing is stored</p>
 
-        <div className="space-y-5 text-xs text-zinc-400 leading-relaxed">
+        <div className="space-y-5 text-sm text-gray-600 leading-relaxed">
           <div>
-            <p className="text-zinc-200 font-medium mb-1">what we store</p>
-            <p className="text-zinc-500">Nothing. No files, no names, no history, no analytics. While active, a receiver sends a heartbeat with a random ID and display name. This data expires 15 seconds after the last heartbeat.</p>
+            <p className="text-gray-900 font-medium mb-1">What we store</p>
+            <p className="text-gray-500">Nothing. No files, no names, no history, no analytics. While active, a receiver sends a heartbeat with a random ID and display name. This data expires 15 seconds after the last heartbeat.</p>
           </div>
 
           <div>
-            <p className="text-zinc-200 font-medium mb-1">vercel</p>
-            <p className="text-zinc-500">Handles temporary presence and signaling only. Never sees file contents. May observe timing metadata.</p>
+            <p className="text-gray-900 font-medium mb-1">Location</p>
+            <p className="text-gray-500">Your browser shares its approximate location (from GPS) to find nearby devices. The TUI shares an IP-based approximate location. Only currently active devices within 50 km can see each other. No location data is stored.</p>
           </div>
 
           <div>
-            <p className="text-zinc-200 font-medium mb-1">transfer</p>
-            <p className="text-zinc-500">All files transfer directly between devices over WebRTC DTLS. No file data passes through any server.</p>
+            <p className="text-gray-900 font-medium mb-1">Transfers</p>
+            <p className="text-gray-500">All files transfer directly between devices over WebRTC DTLS. No file data passes through any server.</p>
           </div>
 
           <div>
-            <p className="text-zinc-200 font-medium mb-1">telemetry</p>
-            <p className="text-zinc-500">None. No analytics unless explicitly enabled.</p>
+            <p className="text-gray-900 font-medium mb-1">Telemetry</p>
+            <p className="text-gray-500">None. No analytics unless explicitly enabled.</p>
           </div>
         </div>
       </div>
