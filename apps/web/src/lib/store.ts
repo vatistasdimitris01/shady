@@ -174,6 +174,24 @@ export function clearSignals(sessionId: string): void {
   signals.delete(sessionId);
 }
 
+const approvals = new Map<string, Set<string>>();
+
+export function approveSender(sessionId: string, senderId: string): void {
+  const set = approvals.get(sessionId) || new Set();
+  set.add(senderId);
+  approvals.set(sessionId, set);
+}
+
+export function isApproved(sessionId: string, senderId: string): boolean {
+  const set = approvals.get(sessionId);
+  return set ? set.has(senderId) : false;
+}
+
+export function unapproveSender(sessionId: string, senderId: string): void {
+  const set = approvals.get(sessionId);
+  if (set) set.delete(senderId);
+}
+
 export function cleanupExpired(): void {
   const now = Date.now();
   for (const [id, entry] of presence) {

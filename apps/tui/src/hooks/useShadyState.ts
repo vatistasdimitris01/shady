@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { sendHeartbeat, unregisterDevice, pollSignals, sendSignal, fetchGeoLocation, checkNameTaken, fetchNearbyDevices } from '../lib/api.js';
+import { sendHeartbeat, unregisterDevice, pollSignals, sendSignal, sendApproval, fetchGeoLocation, checkNameTaken, fetchNearbyDevices } from '../lib/api.js';
 import {
   generateDeviceId,
   generateSessionId,
@@ -85,6 +85,7 @@ export function useShadyState(offline: boolean) {
   const approveRequest = useCallback(() => {
     if (!pendingRequest) return;
     sendSignal(pendingRequest.sessionId, identity.deviceId, 'pair-approve', { pairingCode: pendingRequest.pairingCode });
+    if (pendingRequest.senderId) sendApproval(pendingRequest.sessionId, pendingRequest.senderId);
     setPendingRequest(null);
     addLog('success', `Approved: ${pendingRequest.senderName}`);
   }, [pendingRequest, identity.deviceId, addLog]);
@@ -152,9 +153,10 @@ export function useShadyState(offline: boolean) {
         lastSignalRef.current = Math.max(lastSignalRef.current, msg.timestamp);
 
         if (msg.type === 'pair-request') {
-          const p = msg.payload as { senderName: string; senderDeviceType: string; senderBrowser: string; senderOS: string };
+          const p = msg.payload as { senderId: string; senderName: string; senderDeviceType: string; senderBrowser: string; senderOS: string };
           setPendingRequest({
             sessionId: identity.sessionId,
+            senderId: p.senderId || '',
             senderName: p.senderName || 'Unknown',
             senderDeviceType: (p.senderDeviceType as any) || 'unknown',
             senderBrowser: p.senderBrowser || 'Unknown',

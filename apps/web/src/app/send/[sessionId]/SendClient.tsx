@@ -14,9 +14,12 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const chRef = useRef<RTCDataChannel | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const approveRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSig = useRef(0);
   const t0 = useRef(0);
   const iceBufferRef = useRef<any[]>([]);
+  const senderIdRef = useRef(crypto.randomUUID());
+  const startedRef = useRef(false);
 
   const signal = useCallback(async (type: string, payload: unknown) => {
     await fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -41,7 +44,7 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
   }, [signal]);
 
   const handleSig = useCallback(async (msg: { type: string; payload: unknown }) => {
-    if (msg.type === 'pair-approve') await startRTC();
+    if (msg.type === 'pair-approve') { if (!startedRef.current) { startedRef.current = true; await startRTC(); } }
     else if (msg.type === 'pair-reject') { setError('rejected'); setStatus('error'); }
     else if (msg.type === 'answer' && pcRef.current) {
       await pcRef.current.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
@@ -71,13 +74,27 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
         const r = await fetch(`/api/presence?sessionId=${sessionId}`);
         const d = await r.json();
         if (d.ok && d.receiver) { setReceiver(d.receiver); setStatus('pairing');
-          await signal('pair-request', { senderName: 'Browser', senderDeviceType: 'unknown', senderBrowser: navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop', senderOS: navigator.platform });
+          await signal('pair-request', { senderId: senderIdRef.current, senderName: 'Browser', senderDeviceType: 'unknown', senderBrowser: navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop', senderOS: navigator.platform });
         } else { setError('receiver not found'); setStatus('error'); }
       } catch { setError('connection failed'); setStatus('error'); }
     })();
   }, [sessionId, signal]);
 
   useEffect(() => { if (status === 'pairing') pollRef.current = setInterval(poll, 1000); return () => { clearInterval(pollRef.current!); }; }, [status, poll]);
+
+  useEffect(() => {
+    if (status !== 'pairing') return;
+    const id = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/approve?sessionId=${sessionId}&senderId=${senderIdRef.current}`);
+        const d = await r.json();
+        if (d.ok && d.approved && !startedRef.current) { startedRef.current = true; startRTC(); }
+      } catch {}
+    }, 800);
+    approveRef.current = id;
+    return () => clearInterval(id);
+  }, [status, sessionId, startRTC]);
+
   useEffect(() => () => { pcRef.current?.close(); }, []);
 
   const send = async (files: File[]) => {

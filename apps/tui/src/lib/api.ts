@@ -43,6 +43,31 @@ export async function unregisterDevice(deviceId: string): Promise<void> {
   } catch {}
 }
 
+export async function sendApproval(sessionId: string, senderId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, senderId }),
+      signal: AbortSignal.timeout(5000),
+    });
+    const json = await res.json();
+    return json.ok === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function pollApproval(sessionId: string, senderId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/approve?sessionId=${encodeURIComponent(sessionId)}&senderId=${encodeURIComponent(senderId)}`, { signal: AbortSignal.timeout(5000) });
+    const json = await res.json();
+    return json.ok && json.approved;
+  } catch {
+    return false;
+  }
+}
+
 export async function sendSignal(sessionId: string, from: string, type: string, payload: unknown): Promise<string | null> {
   try {
     const res = await fetch(`${BASE_URL}/api/signal`, {

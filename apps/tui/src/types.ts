@@ -4,6 +4,7 @@ export type DeviceType = 'desktop' | 'laptop' | 'phone' | 'tablet' | 'unknown';
 
 export interface PairingRequest {
   sessionId: string;
+  senderId: string;
   senderName: string;
   senderDeviceType: DeviceType;
   senderBrowser: string;
