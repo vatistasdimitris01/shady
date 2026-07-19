@@ -5,7 +5,7 @@
 :root {
   --shady-bg: #0a0a0a;
   --shady-surface: #141414;
-  --shady-border: #262626;
+  --shady-border: #1f1f1f;
   --shady-accent: #a3e635;
   --shady-accent-dim: #65a30d;
   --shady-muted: #525252;
@@ -19,12 +19,12 @@
 body {
   background: var(--shady-bg);
   color: var(--shady-text);
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-input, button, a {
+input, button, textarea, a {
   touch-action: manipulation;
 }
 
@@ -37,25 +37,20 @@ input, button, a {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
-.grid-bg {
-  background-image:
-    linear-gradient(rgba(163, 230, 53, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(163, 230, 53, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
-/* QR Scanner overrides */
+.animate-spin {
+  animation: spin 0.8s linear infinite;
+}
+
 #qr-reader {
   border: none !important;
 }
 
 #qr-reader video {
   object-fit: cover !important;
-  border-radius: 0 !important;
-}
-
-#qr-reader img[alt="Info icon"] {
-  display: none !important;
 }
 
 #qr-reader__scan_region {
@@ -66,7 +61,6 @@ input, button, a {
   display: none !important;
 }
 
-/* Safe area insets for notch devices */
 @supports (padding: env(safe-area-inset-top)) {
   body {
     padding-top: env(safe-area-inset-top);

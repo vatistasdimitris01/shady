@@ -12,15 +12,12 @@ const config: Config = {
         shady: {
           bg: '#0a0a0a',
           surface: '#141414',
-          border: '#262626',
+          border: '#1f1f1f',
           accent: '#a3e635',
           accentDim: '#65a30d',
           muted: '#525252',
           text: '#e5e5e5',
         },
-      },
-      fontFamily: {
-        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
     },
   },
