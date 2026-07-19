@@ -14,13 +14,12 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
   const [sentCount, setSentCount] = useState(0);
   const [fileStatuses, setFileStatuses] = useState<{ name: string; done: boolean }[]>([]);
   const [dragging, setDragging] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const approveRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const senderIdRef = useRef(crypto.randomUUID());
   const startedRef = useRef(false);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const chRef = useRef<RTCDataChannel | null>(null);
   const iceBufferRef = useRef<any[]>([]);
+  const lastPollRef = useRef(0);
 
   const signal = useCallback(async (type: string, payload: unknown) => {
     await fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -39,18 +38,54 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
     })();
   }, [sessionId, signal]);
 
-  const poll = useCallback(async () => {
-    try {
-      const r = await fetch(`/api/signal?sessionId=${sessionId}&since=0`);
-      const d = await r.json();
-      if (d.ok && d.messages?.length > 0) for (const m of d.messages) {
-        if (m.type === 'pair-approve' && !startedRef.current) { startedRef.current = true; setStatus('connected'); }
-        if (m.type === 'pair-reject') { setError('rejected'); setStatus('error'); }
-      }
-    } catch {}
-  }, [sessionId]);
+  // Continuous signal polling — handles both pairing approval and WebRTC signaling
+  useEffect(() => {
+    const id = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/signal?sessionId=${sessionId}&since=${lastPollRef.current}`);
+        const d = await r.json();
+        if (d.ok && d.messages?.length > 0) {
+          for (const m of d.messages) {
+            lastPollRef.current = Math.max(lastPollRef.current, m.timestamp);
 
-  useEffect(() => { if (status === 'pairing') pollRef.current = setInterval(poll, 1000); return () => { clearInterval(pollRef.current!); }; }, [status, poll]);
+            if (m.type === 'pair-approve' && !startedRef.current) {
+              startedRef.current = true;
+              setStatus('connected');
+            }
+            if (m.type === 'pair-reject') {
+              setError('rejected');
+              setStatus('error');
+            }
+            if (m.type === 'answer') {
+              const pc = pcRef.current;
+              if (pc && pc.currentRemoteDescription === null) {
+                try {
+                  await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: (m.payload as any).sdp }));
+                  const buf = iceBufferRef.current;
+                  iceBufferRef.current = [];
+                  for (const c of buf) {
+                    try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {}
+                  }
+                } catch (e) {
+                  console.error('setRemoteDescription failed', e);
+                }
+              }
+            }
+            if (m.type === 'ice-candidate') {
+              const pc = pcRef.current;
+              const cand = { candidate: (m.payload as any).candidate, sdpMid: (m.payload as any).mid };
+              if (pc && pc.remoteDescription) {
+                try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch {}
+              } else {
+                iceBufferRef.current.push(cand);
+              }
+            }
+          }
+        }
+      } catch {}
+    }, 1000);
+    return () => clearInterval(id);
+  }, [sessionId]);
 
   useEffect(() => {
     if (status !== 'pairing') return;
@@ -61,7 +96,6 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
         if (d.ok && d.approved && !startedRef.current) { startedRef.current = true; setStatus('connected'); }
       } catch {}
     }, 800);
-    approveRef.current = id;
     return () => clearInterval(id);
   }, [status, sessionId]);
 
