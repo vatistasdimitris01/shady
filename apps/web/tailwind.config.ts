@@ -2,22 +2,29 @@ import type { Config } from 'tailwindcss';
 
 const config: Config = {
   content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
       colors: {
-        shady: {
-          bg: '#0a0a0a',
-          surface: '#141414',
-          border: '#1f1f1f',
-          accent: '#a3e635',
-          accentDim: '#65a30d',
-          muted: '#525252',
-          text: '#e5e5e5',
+        zinc: {
+          950: '#09090b',
+          900: '#18181b',
+          800: '#27272a',
+          700: '#3f3f46',
+          500: '#71717a',
+          400: '#a1a1aa',
+          200: '#e4e4e7',
+          100: '#f4f4f5',
+          50: '#fafafa',
         },
+        lime: {
+          400: '#a3e635',
+          600: '#65a30d',
+        },
+      },
+      fontFamily: {
+        mono: ['SF Mono', 'Menlo', 'Consolas', 'monospace'],
       },
     },
   },

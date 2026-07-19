@@ -2,237 +2,77 @@
 
 import { useState } from 'react';
 
-const STEPS = [
-  {
-    number: 1,
-    title: 'Install the TUI',
-    description: 'Clone the repo and install the TUI. Requires Node.js 18 or later.',
-    commands: [
-      { label: 'clone', code: 'git clone https://github.com/vatistasdimitris01/shady.git' },
-      { label: 'install', code: 'cd shady/apps/tui && npm install' },
-      { label: 'link', code: 'npm link' },
-    ],
-    note: 'After npm link, the "shady" command is available globally. You can also run it directly with: npx tsx src/cli.tsx',
-  },
-  {
-    number: 2,
-    title: 'Start the Receiver',
-    description: 'Run shady in your terminal. A QR code and pairing code will appear.',
-    commands: [
-      { label: 'start', code: 'shady' },
-      { label: 'offline mode', code: 'shady --offline' },
-      { label: 'custom name', code: 'shady --name "My Computer"' },
-    ],
-    note: 'The receiver registers itself with the discovery service and starts waiting for connections.',
-  },
-  {
-    number: 3,
-    title: 'Open the Web App on Your Phone',
-    description: 'On the sending device, open this website. Your computer should appear in the Nearby Receivers list.',
-    commands: [
-      { label: 'url', code: 'https://shady-app.vercel.app' },
-    ],
-    note: 'Both devices must be on the same network for nearby discovery to work. Alternatively, scan the QR code from the terminal.',
-  },
-  {
-    number: 4,
-    title: 'Approve the Connection',
-    description: 'When someone tries to connect, a pairing request appears in your terminal. A 6-digit code is shown on both devices.',
-    commands: [],
-    note: 'Verify that the code on your phone matches the code in your terminal. Press A to accept, R to reject.',
-  },
-  {
-    number: 5,
-    title: 'Send Files',
-    description: 'Once approved, a direct WebRTC connection is established. Drop files in the browser — they transfer straight to your computer.',
-    commands: [],
-    note: 'Files are encrypted end-to-end. Nothing passes through any server. Transfer speed is limited only by your local network.',
-  },
-  {
-    number: 6,
-    title: 'Files Are Saved',
-    description: 'Received files are verified with SHA-256 and saved to ~/Downloads/SHADY by default.',
-    commands: [
-      { label: 'default path', code: '~/Downloads/SHADY' },
-      { label: 'custom path', code: 'shady --output /path/to/folder' },
-    ],
-    note: 'Check the Activity log in the TUI for transfer status. Incomplete transfers can be resumed.',
-  },
-];
-
-const OS_INSTRUCTIONS = [
-  {
-    os: 'macOS',
-    icon: '',
-    install: 'brew install node && git clone https://github.com/vatistasdimitris01/shady.git && cd shady/apps/tui && npm install && npm link',
-    run: 'shady',
-  },
-  {
-    os: 'Linux',
-    icon: '',
-    install: 'curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt install -y nodejs && git clone https://github.com/vatistasdimitris01/shady.git && cd shady/apps/tui && npm install && sudo npm link',
-    run: 'shady',
-  },
-  {
-    os: 'Windows',
-    icon: '',
-    install: 'Download Node.js from nodejs.org, then: git clone https://github.com/vatistasdimitris01/shady.git && cd shady\\apps\\tui && npm install && npm link',
-    run: 'shady',
-  },
+const OS = [
+  { name: 'macOS', cmd: 'brew install node && git clone https://github.com/vatistasdimitris01/shady.git && cd shady/apps/tui && npm install && npm link' },
+  { name: 'Linux', cmd: 'curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt install -y nodejs && git clone https://github.com/vatistasdimitris01/shady.git && cd shady/apps/tui && npm install && sudo npm link' },
+  { name: 'Windows', cmd: 'git clone https://github.com/vatistasdimitris01/shady.git && cd shady\\apps\\tui && npm install && npm link' },
 ];
 
 export default function SetupPage() {
-  const [activeOS, setActiveOS] = useState(0);
+  const [os, setOs] = useState(0);
   const [copied, setCopied] = useState('');
 
-  const copyCommand = (code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopied(code);
-    setTimeout(() => setCopied(''), 2000);
-  };
+  const copy = (t: string) => { navigator.clipboard.writeText(t); setCopied(t); setTimeout(() => setCopied(''), 1500); };
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-8 sm:py-12">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl sm:text-4xl font-bold text-shady-accent mb-2">Setup Guide</h1>
-        <p className="text-shady-muted text-sm sm:text-lg">Get running in under 2 minutes.</p>
-      </div>
+    <div className="min-h-dvh flex flex-col items-center justify-center px-6 py-12">
+      <div className="w-full max-w-[320px]">
+        <a href="/" className="text-zinc-700 text-xs hover:text-zinc-500 transition-colors mb-6 inline-block">← back</a>
+        <h1 className="text-lg font-medium tracking-tight mb-1">setup</h1>
+        <p className="text-zinc-500 text-xs mb-8">get running in 2 minutes</p>
 
-      <div className="bg-shady-surface border border-shady-border rounded-xl p-4 sm:p-6 mb-6">
-        <h2 className="text-xs sm:text-sm font-bold text-shady-accent mb-3 uppercase tracking-wider">Quick Install</h2>
-        <div className="flex gap-2 mb-4">
-          {OS_INSTRUCTIONS.map((o, i) => (
-            <button
-              key={o.os}
-              onClick={() => setActiveOS(i)}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
-                activeOS === i
-                  ? 'bg-shady-accent text-shady-bg'
-                  : 'bg-shady-bg border border-shady-border text-shady-muted hover:text-shady-text'
-              }`}
-            >
-              {o.os}
-            </button>
-          ))}
-        </div>
-        <div className="bg-shady-bg border border-shady-border rounded-lg p-4">
-          <p className="text-xs text-shady-muted mb-2">Install</p>
-          <div className="flex items-center justify-between mb-3">
-            <code className="text-shady-accent text-sm break-all">{OS_INSTRUCTIONS[activeOS].install}</code>
-            <button
-              onClick={() => copyCommand(OS_INSTRUCTIONS[activeOS].install)}
-              className="ml-3 text-shady-muted hover:text-shady-accent text-xs shrink-0"
-            >
-              {copied === OS_INSTRUCTIONS[activeOS].install ? 'Copied' : 'Copy'}
-            </button>
+        {/* Install */}
+        <div className="mb-8">
+          <div className="flex gap-1 mb-3">
+            {OS.map((o, i) => (
+              <button key={o.name} onClick={() => setOs(i)}
+                className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${i === os ? 'bg-lime-400 text-zinc-950' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                {o.name}
+              </button>
+            ))}
           </div>
-          <p className="text-xs text-shady-muted mb-2">Run</p>
-          <div className="flex items-center justify-between">
-            <code className="text-shady-accent text-sm">{OS_INSTRUCTIONS[activeOS].run}</code>
-            <button
-              onClick={() => copyCommand(OS_INSTRUCTIONS[activeOS].run)}
-              className="ml-3 text-shady-muted hover:text-shady-accent text-xs shrink-0"
-            >
-              {copied === OS_INSTRUCTIONS[activeOS].run ? 'Copied' : 'Copy'}
+          <div className="bg-zinc-900 rounded-lg p-3 flex items-center justify-between">
+            <code className="text-lime-400 text-[10px] font-mono break-all leading-relaxed pr-2">{OS[os].cmd}</code>
+            <button onClick={() => copy(OS[os].cmd)} className="text-zinc-600 text-[10px] hover:text-zinc-400 shrink-0">
+              {copied === OS[os].cmd ? 'copied' : 'copy'}
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Step by step */}
-      <div className="space-y-6 mb-12">
-        {STEPS.map((step) => (
-          <div key={step.number} className="bg-shady-surface border border-shady-border rounded-xl p-6">
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 w-10 h-10 bg-shady-accent text-shady-bg rounded-full flex items-center justify-center font-bold text-lg">
-                {step.number}
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold mb-1">{step.title}</h3>
-                <p className="text-shady-muted text-sm mb-3">{step.description}</p>
-
-                {step.commands.length > 0 && (
-                  <div className="space-y-2 mb-3">
-                    {step.commands.map((cmd) => (
-                      <div key={cmd.label} className="bg-shady-bg border border-shady-border rounded-lg px-4 py-2.5 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-shady-muted uppercase w-16">{cmd.label}</span>
-                          <code className="text-shady-accent text-sm">{cmd.code}</code>
-                        </div>
-                        <button
-                          onClick={() => copyCommand(cmd.code)}
-                          className="text-shady-muted hover:text-shady-accent text-xs"
-                        >
-                          {copied === cmd.code ? 'Copied' : 'Copy'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {step.note && (
-                  <p className="text-shady-muted text-xs italic">{step.note}</p>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Keyboard shortcuts */}
-      <div className="bg-shady-surface border border-shady-border rounded-xl p-4 sm:p-6 mb-6">
-        <h2 className="text-xs sm:text-sm font-bold text-shady-accent mb-3 uppercase tracking-wider">Keyboard Shortcuts</h2>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs sm:text-sm">
+        {/* Steps */}
+        <div className="space-y-5 mb-8">
           {[
-            ['A', 'Accept connection', 'green'],
-            ['R', 'Reject connection', 'red'],
-            ['Q', 'Refresh QR code', 'yellow'],
-            ['Ctrl+C', 'Quit', 'red'],
-          ].map(([key, desc, color]) => (
-            <div key={key as string} className="flex items-center gap-2 py-1">
-              <kbd className={`bg-shady-bg border border-shady-border rounded px-2 py-0.5 text-xs font-mono font-bold text-${color} w-14 text-center shrink-0`}>
-                {key}
-              </kbd>
-              <span className="text-shady-muted">{desc}</span>
+            { n: '1', t: 'install', d: 'clone the repo and link it globally' },
+            { n: '2', t: 'run shady', d: 'a qr code appears in your terminal' },
+            { n: '3', t: 'open this site', d: 'scan the qr or enter the pairing code' },
+            { n: '4', t: 'approve', d: 'press A in the terminal to accept' },
+            { n: '5', t: 'drop files', d: 'they transfer directly to your computer' },
+          ].map(s => (
+            <div key={s.n} className="flex gap-3">
+              <span className="text-lime-400 text-xs font-mono mt-0.5">{s.n}</span>
+              <div>
+                <p className="text-xs font-medium">{s.t}</p>
+                <p className="text-zinc-500 text-[10px]">{s.d}</p>
+              </div>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Troubleshooting */}
-      <div className="bg-shady-surface border border-shady-border rounded-xl p-6 mb-8">
-        <h2 className="text-sm font-bold text-shady-accent mb-4 uppercase tracking-wider">Troubleshooting</h2>
-        <div className="space-y-4 text-sm">
-          <div>
-            <h3 className="font-bold mb-1">Receiver not showing up</h3>
-            <p className="text-shady-muted">Make sure both devices are on the same Wi-Fi network. If using a VPN, disconnect it — VPNs block local discovery.</p>
-          </div>
-          <div>
-            <h3 className="font-bold mb-1">QR code not scanning</h3>
-            <p className="text-shady-muted">Ensure the terminal supports QR codes. Most modern terminals do. Try the manual pairing code instead.</p>
-          </div>
-          <div>
-            <h3 className="font-bold mb-1">Connection fails after approval</h3>
-            <p className="text-shady-muted">Your network may be blocking WebRTC. Try offline mode: run shady --offline on the same Wi-Fi.</p>
-          </div>
-          <div>
-            <h3 className="font-bold mb-1">Transfer is slow</h3>
-            <p className="text-shady-muted">Check your Wi-Fi signal. For best speed, use a wired connection or 5 GHz Wi-Fi. Large files are chunked at 256 KiB.</p>
-          </div>
-          <div>
-            <h3 className="font-bold mb-1">Run diagnostics</h3>
-            <p className="text-shady-muted">Press D in the TUI to run network diagnostics and see what&apos;s working.</p>
+        {/* Shortcuts */}
+        <div className="mb-8">
+          <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">shortcuts</p>
+          <div className="grid grid-cols-2 gap-y-1">
+            {[['A', 'accept'], ['R', 'reject'], ['Q', 'new qr'], ['Ctrl+C', 'quit']].map(([k, v]) => (
+              <div key={k} className="flex items-center gap-2 text-[10px]">
+                <kbd className="font-mono text-lime-400 w-10">{k}</kbd>
+                <span className="text-zinc-500">{v}</span>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
 
-      {/* Security note */}
-      <div className="bg-shady-surface border border-shady-accent/20 rounded-xl p-6 text-center">
-        <p className="text-shady-muted text-sm">
-          SHADY transfers are end-to-end encrypted via WebRTC DTLS. Files never pass through any server.
-          Read the{' '}
-          <a href="/security" className="text-shady-accent hover:underline">security model</a>
-          {' '}for details.
+        <p className="text-zinc-700 text-[10px] text-center">
+          end-to-end encrypted · no files touch a server
         </p>
       </div>
     </div>

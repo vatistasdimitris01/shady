@@ -1,48 +1,35 @@
 export default function SecurityPage() {
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12">
-      <h1 className="text-3xl font-bold text-shady-accent mb-8">Security</h1>
+    <div className="min-h-dvh flex flex-col items-center justify-center px-6 py-12">
+      <div className="w-full max-w-[320px]">
+        <a href="/" className="text-zinc-700 text-xs hover:text-zinc-500 transition-colors mb-6 inline-block">← back</a>
+        <h1 className="text-lg font-medium tracking-tight mb-1">security</h1>
+        <p className="text-zinc-500 text-xs mb-8">how your files stay safe</p>
 
-      <div className="space-y-6 text-shady-text text-sm leading-relaxed">
-        <section className="bg-shady-surface border border-shady-border rounded-xl p-6">
-          <h2 className="text-lg font-bold mb-3">End-to-end encryption</h2>
-          <p className="text-shady-muted">All file transfers use WebRTC data channels secured with DTLS encryption. Data is encrypted on the sender and decrypted only on the receiver. No intermediary can read the file contents.</p>
-        </section>
+        <div className="space-y-5 text-xs text-zinc-400 leading-relaxed">
+          {[
+            ['encryption', 'WebRTC DTLS encrypts all data in transit. Only sender and receiver can read it.'],
+            ['ephemeral keys', 'Each session generates fresh Ed25519 keys. Discarded when done.'],
+            ['manual approval', 'Every connection requires explicit approval with a 6-digit code.'],
+            ['one-time secrets', 'QR codes contain one-time secrets. The URL fragment never hits the server.'],
+            ['file integrity', 'SHA-256 hash verified after transfer. Mismatches are rejected.'],
+            ['path protection', 'File names are sanitized. No path traversal, no escaping the destination.'],
+          ].map(([t, d]) => (
+            <div key={t}>
+              <p className="text-zinc-200 font-medium mb-1">{t}</p>
+              <p className="text-zinc-500">{d}</p>
+            </div>
+          ))}
 
-        <section className="bg-shady-surface border border-shady-border rounded-xl p-6">
-          <h2 className="text-lg font-bold mb-3">Ephemeral identity</h2>
-          <p className="text-shady-muted">Each SHADY session generates a fresh Ed25519 identity key. When the session ends, the key is discarded. No permanent machine identity is ever created or stored.</p>
-        </section>
-
-        <section className="bg-shady-surface border border-shady-border rounded-xl p-6">
-          <h2 className="text-lg font-bold mb-3">Manual approval</h2>
-          <p className="text-shady-muted">Every incoming connection requires explicit approval from the receiver. A 6-digit pairing code is displayed on both devices and must be visually confirmed by the user. Nearby discovery never bypasses this approval step.</p>
-        </section>
-
-        <section className="bg-shady-surface border border-shady-border rounded-xl p-6">
-          <h2 className="text-lg font-bold mb-3">One-time secrets</h2>
-          <p className="text-shady-muted">QR codes contain a one-time secret placed after the URL fragment (#). The fragment is never sent to the server during the initial HTTP request. After successful pairing, the secret is rotated. Expired or used secrets are rejected.</p>
-        </section>
-
-        <section className="bg-shady-surface border border-shady-border rounded-xl p-6">
-          <h2 className="text-lg font-bold mb-3">File integrity</h2>
-          <p className="text-shady-muted">Every file is hashed with SHA-256 before transfer. The receiver verifies the hash after all chunks arrive. If the hash does not match, the file is rejected and the incomplete file is cleaned up automatically.</p>
-        </section>
-
-        <section className="bg-shady-surface border border-shady-border rounded-xl p-6">
-          <h2 className="text-lg font-bold mb-3">Path traversal protection</h2>
-          <p className="text-shady-muted">Received file names are sanitized. Path components like <code className="bg-shady-bg px-1 rounded">../</code>, absolute paths, Windows drive prefixes, null bytes, reserved device names, and hidden control characters are stripped. Files cannot escape the configured destination directory.</p>
-        </section>
-
-        <section className="bg-shady-surface border border-shady-border rounded-xl p-6">
-          <h2 className="text-lg font-bold mb-3">What we don&apos;t claim</h2>
-          <ul className="text-shady-muted space-y-1.5">
-            <li>• WebRTC does not hide peer IP addresses from each other</li>
-            <li>• Vercel can observe timing and device-presence metadata</li>
-            <li>• Restrictive NAT/firewall configs can prevent direct connections</li>
-            <li>• No system provides complete anonymity</li>
-          </ul>
-        </section>
+          <div>
+            <p className="text-zinc-200 font-medium mb-1">honest claims</p>
+            <ul className="text-zinc-600 space-y-0.5">
+              <li>· WebRTC doesn't hide peer IPs from each other</li>
+              <li>· Vercel can observe timing metadata</li>
+              <li>· NAT/firewall may block direct connections</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );
