@@ -1,0 +1,81 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { registerPresence, heartbeat, unregisterPresence, getNearbyReceivers, getReceiverBySession, cleanupExpired } from '@/lib/store';
+import { z } from 'zod';
+
+const heartbeatSchema = z.object({
+  deviceId: z.string().min(1),
+  displayName: z.string().min(1).max(64),
+  publicKey: z.string().min(1),
+  sessionId: z.string().min(1),
+  protocolVersion: z.string(),
+  capabilities: z.array(z.string()),
+  os: z.string(),
+  deviceType: z.enum(['desktop', 'laptop', 'phone', 'tablet', 'unknown']),
+  visibility: z.enum(['hidden', 'qr-only', 'nearby', 'nearby-5min']),
+});
+
+function getSourceIp(req: NextRequest): string {
+  const forwarded = req.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  const realIp = req.headers.get('x-real-ip');
+  if (realIp) return realIp;
+  return '127.0.0.1';
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const parsed = heartbeatSchema.parse(body);
+    const ip = getSourceIp(req);
+
+    if (!heartbeat(parsed.deviceId, ip)) {
+      registerPresence(parsed as any, ip);
+    }
+
+    return NextResponse.json({ ok: true, timestamp: Date.now() });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ ok: false, error: 'Invalid payload', details: err.errors }, { status: 400 });
+    }
+    return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { deviceId } = await req.json();
+    if (!deviceId) {
+      return NextResponse.json({ ok: false, error: 'deviceId required' }, { status: 400 });
+    }
+    unregisterPresence(deviceId);
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
+  }
+}
+
+export async function GET(req: NextRequest) {
+  cleanupExpired();
+  const ip = getSourceIp(req);
+  const receivers = getNearbyReceivers(ip);
+
+  const sessionId = req.nextUrl.searchParams.get('sessionId');
+  if (sessionId) {
+    const receiver = getReceiverBySession(sessionId);
+    if (!receiver) {
+      return NextResponse.json({ ok: false, error: 'Receiver not found' }, { status: 404 });
+    }
+    return NextResponse.json({
+      ok: true,
+      receiver: {
+        deviceId: receiver.deviceId,
+        displayName: receiver.displayName,
+        deviceType: receiver.deviceType,
+        os: receiver.os,
+        ready: true,
+      },
+    });
+  }
+
+  return NextResponse.json({ ok: true, receivers });
+}

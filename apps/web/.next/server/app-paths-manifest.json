@@ -1,0 +1,12 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/about/page": "app/about/page.js",
+  "/api/presence/route": "app/api/presence/route.js",
+  "/api/signal/route": "app/api/signal/route.js",
+  "/page": "app/page.js",
+  "/connect/[sessionId]/page": "app/connect/[sessionId]/page.js",
+  "/security/page": "app/security/page.js",
+  "/privacy/page": "app/privacy/page.js",
+  "/send/[sessionId]/page": "app/send/[sessionId]/page.js",
+  "/setup/page": "app/setup/page.js"
+}
