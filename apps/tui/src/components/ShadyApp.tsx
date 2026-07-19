@@ -31,7 +31,7 @@ export const ShadyApp: React.FC<ShadyAppProps> = ({ offline }) => {
   return (
     <Box flexDirection="column" padding={1}>
       <Header
-        displayName={state.identity.displayName}
+        displayName={state.displayName}
         isConnected={state.isConnected}
         offline={offline}
       />
@@ -51,6 +51,17 @@ export const ShadyApp: React.FC<ShadyAppProps> = ({ offline }) => {
           onAccept={state.approveRequest}
           onReject={state.rejectRequest}
         />
+      )}
+
+      {state.nearbyDevices.length > 0 && (
+        <Box flexDirection="column" marginTop={1} borderStyle="round" borderColor="blue" padding={1}>
+          <Text bold color="blue">NEARBY DEVICES ({state.nearbyDevices.length})</Text>
+          {state.nearbyDevices.slice(0, 5).map((d: any) => (
+            <Text key={d.deviceId}>
+              <Text color="green">●</Text> {d.displayName} <Text dimColor>{d.os}</Text> <Text dimColor>— {d.match === 'city' ? d.city : `${d.city}, ${d.country}`}</Text>
+            </Text>
+          ))}
+        </Box>
       )}
 
       <ActivityLog entries={state.logs} />

@@ -32,9 +32,30 @@ export function detectOS(): string {
 }
 
 export function generateDisplayName(): string {
-  const hostname = process.env.HOSTNAME || process.env.COMPUTERNAME || 'Computer';
-  const cleaned = hostname.replace(/\.local$/, '').replace(/-/g, ' ');
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  const adjectives = [
+    'Roasted', 'Blue', 'Red', 'Golden', 'Silver', 'Brave', 'Cosmic', 'Dancing', 'Electric', 'Flying',
+    'Ghostly', 'Hidden', 'Icy', 'Jolly', 'Kind', 'Lucky', 'Mighty', 'Neon', 'Odd', 'Pink',
+    'Quiet', 'Royal', 'Shiny', 'Tiny', 'Ultra', 'Vivid', 'Wild', 'Xeno', 'Young', 'Zany',
+    'Ancient', 'Bouncy', 'Chilly', 'Deep', 'Eager', 'Fancy', 'Gentle', 'Happy', 'Ink', 'Jade',
+    'Keen', 'Lazy', 'Magic', 'Noble', 'Old', 'Pure', 'Quick', 'Rough', 'Soft', 'Tough',
+    'Loud', 'Smooth', 'Bold', 'Calm', 'Dandy', 'Elite', 'Frost', 'Grand', 'Holy', 'Iron',
+    'Silent', 'Swift', 'Thin', 'Vast', 'Warm', 'Crisp', 'Dawn', 'Edge', 'Flame', 'Glow',
+    'Haze', 'Jet', 'Kaleido', 'Lunar', 'Mist', 'Nova', 'Onyx', 'Pearl', 'Quartz', 'Ruby',
+    'Steel', 'Topaz', 'Umbra', 'Vibe', 'Wave', 'Zephyr', 'Amber', 'Blaze', 'Copper', 'Drift',
+  ];
+  const nouns = [
+    'Car', 'Whale', 'Tiger', 'Eagle', 'Fox', 'Wolf', 'Bear', 'Hawk', 'Lion', 'Deer',
+    'Owl', 'Falcon', 'Panda', 'Koala', 'Viper', 'Lynx', 'Dragon', 'Phoenix', 'Raven', 'Shark',
+    'Cobra', 'Crane', 'Dolphin', 'Elk', 'Gecko', 'Hare', 'Ibex', 'Jaguar', 'Kite', 'Lark',
+    'Moth', 'Newt', 'Otter', 'Puma', 'Quail', 'Roan', 'Skunk', 'Toad', 'Urchin', 'Vole',
+    'Wren', 'Yak', 'Zebra', 'Beetle', 'Coral', 'Drift', 'Ember', 'Flint', 'Grove', 'Horn',
+    'Ivory', 'Jade', 'Kelp', 'Lobe', 'Moss', 'Nest', 'Orbit', 'Petal', 'Quill', 'Reef',
+    'Sable', 'Tusk', 'Urn', 'Vale', 'Wisp', 'Yarn', 'Zeal', 'Bloom', 'Crest', 'Dune',
+    'Fjord', 'Glen', 'Heath', 'Isle', 'Knoll', 'Ledge', 'Mesa', 'Nook', 'Oasis', 'Peak',
+  ];
+  const a = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const n = nouns[Math.floor(Math.random() * nouns.length)];
+  return `${a} ${n}`;
 }
 
 export function formatBytes(bytes: number): string {

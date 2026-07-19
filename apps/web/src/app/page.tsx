@@ -30,6 +30,9 @@ export default function Home() {
       'https://ipapi.co/json/',
       'https://ipwho.is/',
       'https://ipinfo.io/json',
+      'https://ip-api.com/json/',
+      'https://freeipapi.com/api/json/',
+      'https://api.ip.sb/geoip',
     ];
     (async () => {
       for (const url of services) {
@@ -38,7 +41,7 @@ export default function Home() {
           const d = await res.json();
           const city = d.city || d.region || '';
           const country = d.country_name || d.country || '';
-          const countryCode = d.country_code || d.country || '';
+          const countryCode = d.country_code || d.countryCode || d.country || '';
           if (city && country) {
             setLocation({ city, country, countryCode });
             return;

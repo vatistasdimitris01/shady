@@ -12,6 +12,7 @@ export default function ConnectClient({ sessionId }: { sessionId: string }) {
   const chRef = useRef<RTCDataChannel | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSig = useRef(0);
+  const iceBufferRef = useRef<any[]>([]);
 
   const signal = useCallback(async (type: string, payload: unknown) => {
     await fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -25,6 +26,8 @@ export default function ConnectClient({ sessionId }: { sessionId: string }) {
     pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed') { setError('connection failed'); setStatus('error'); } };
     pc.ondatachannel = (e) => { chRef.current = e.channel; e.channel.binaryType = 'arraybuffer'; e.channel.onopen = () => setStatus('connected'); };
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    for (const c of iceBufferRef.current) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} }
+    iceBufferRef.current = [];
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     signal('answer', answer);
@@ -33,7 +36,13 @@ export default function ConnectClient({ sessionId }: { sessionId: string }) {
 
   const handleSig = useCallback(async (msg: { type: string; payload: unknown }) => {
     if (msg.type === 'offer' && !pcRef.current) { setStatus('connecting'); await handleOffer(msg.payload as RTCSessionDescriptionInit); }
-    else if (msg.type === 'ice-candidate' && pcRef.current) await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit)).catch(() => {});
+    else if (msg.type === 'ice-candidate') {
+      if (pcRef.current && pcRef.current.remoteDescription) {
+        await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit)).catch(() => {});
+      } else {
+        iceBufferRef.current.push(msg.payload);
+      }
+    }
     else if (msg.type === 'pair-reject') { setError('rejected'); setStatus('error'); }
   }, [handleOffer]);
 

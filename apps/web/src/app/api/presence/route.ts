@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { registerPresence, heartbeat, unregisterPresence, getReceiverBySession, getReceiverByCode, getNearbyByLocation, cleanupExpired } from '@/lib/store';
+import { registerPresence, heartbeat, unregisterPresence, getReceiverBySession, getReceiverByCode, getNearbyByLocation, cleanupExpired, isNameTaken } from '@/lib/store';
 import { z } from 'zod';
 
 const heartbeatSchema = z.object({
@@ -63,6 +63,11 @@ export async function DELETE(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   cleanupExpired();
+
+  const taken = req.nextUrl.searchParams.get('taken');
+  if (taken) {
+    return NextResponse.json({ ok: true, taken: isNameTaken(taken) });
+  }
 
   const code = req.nextUrl.searchParams.get('code');
   if (code) {

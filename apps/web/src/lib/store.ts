@@ -136,6 +136,16 @@ export function getNearbyByLocation(query: { city: string; country: string; coun
   return results;
 }
 
+export function isNameTaken(name: string): boolean {
+  const now = Date.now();
+  for (const entry of presence.values()) {
+    if (entry.displayName.toLowerCase() === name.toLowerCase() && entry.lastSeen + PRESENCE_TTL >= now) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function pushSignal(msg: Omit<SignalEntry, 'id' | 'timestamp'>): SignalEntry {
   const entry: SignalEntry = {
     ...msg,

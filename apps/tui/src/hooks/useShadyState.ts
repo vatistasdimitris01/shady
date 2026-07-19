@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { sendHeartbeat, unregisterDevice, pollSignals, sendSignal, fetchGeoLocation } from '../lib/api.js';
+import { sendHeartbeat, unregisterDevice, pollSignals, sendSignal, fetchGeoLocation, checkNameTaken, fetchNearbyDevices } from '../lib/api.js';
 import {
   generateDeviceId,
   generateSessionId,
@@ -18,10 +18,20 @@ const SESSION_DURATION = 10 * 60 * 1000;
 export function useShadyState(offline: boolean) {
   const [identity] = useState(() => ({
     deviceId: generateDeviceId(),
-    displayName: generateDisplayName(),
     sessionId: generateSessionId(),
     publicKey: `ed25519:${generateQrSecret().slice(0, 64)}`,
   }));
+
+  const [displayName, setDisplayName] = useState('');
+
+  useEffect(() => {
+    if (offline) { setDisplayName(generateDisplayName()); return; }
+    (async () => {
+      let name = generateDisplayName();
+      while (await checkNameTaken(name)) name = generateDisplayName();
+      setDisplayName(name);
+    })();
+  }, [offline]);
 
   const [sessionExpiresAt, setSessionExpiresAt] = useState(Date.now() + SESSION_DURATION);
   const [qrSecret, setQrSecret] = useState(generateQrSecret);
@@ -29,10 +39,14 @@ export function useShadyState(offline: boolean) {
   const [isConnected, setIsConnected] = useState(false);
   const [pendingRequest, setPendingRequest] = useState<PairingRequest | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [nearbyDevices, setNearbyDevices] = useState<any[]>([]);
   const lastSignalRef = useRef(0);
 
   const pairingCodeRef = useRef(pairingCode);
   useEffect(() => { pairingCodeRef.current = pairingCode; }, [pairingCode]);
+
+  const displayNameRef = useRef(displayName);
+  useEffect(() => { displayNameRef.current = displayName; }, [displayName]);
 
   const locationRef = useRef({ city: '', region: '', country: '', countryCode: '' });
 
@@ -44,6 +58,17 @@ export function useShadyState(offline: boolean) {
         addLog('info', `${loc.city}, ${loc.country}`);
       }
     });
+  }, [offline]);
+
+  useEffect(() => {
+    if (offline) return;
+    const poll = setInterval(async () => {
+      const loc = locationRef.current;
+      if (!loc.city || !loc.country) return;
+      const devices = await fetchNearbyDevices(loc.city, loc.country, loc.countryCode);
+      setNearbyDevices(devices);
+    }, 5000);
+    return () => clearInterval(poll);
   }, [offline]);
 
   const addLog = useCallback((type: LogEntry['type'], message: string) => {
@@ -77,13 +102,17 @@ export function useShadyState(offline: boolean) {
       return;
     }
 
-    addLog('info', `Ready: ${identity.displayName}`);
+    addLog('info', `Ready: ${displayName}`);
+
+    let firstRun = true;
 
     const doHeartbeat = () => {
+      const dn = displayNameRef.current;
+      if (!dn) return Promise.resolve({ ok: false, error: 'name pending' });
       const loc = locationRef.current;
       return sendHeartbeat({
         deviceId: identity.deviceId,
-        displayName: identity.displayName,
+        displayName: dn,
         publicKey: identity.publicKey,
         sessionId: identity.sessionId,
         protocolVersion: '1.0.0',
@@ -161,12 +190,14 @@ export function useShadyState(offline: boolean) {
 
   return {
     identity,
+    displayName,
     sessionExpiresAt,
     qrSecret,
     pairingCode,
     isConnected,
     pendingRequest,
     logs,
+    nearbyDevices,
     addLog,
     refreshQr,
     approveRequest,

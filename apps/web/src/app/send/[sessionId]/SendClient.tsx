@@ -16,6 +16,7 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSig = useRef(0);
   const t0 = useRef(0);
+  const iceBufferRef = useRef<any[]>([]);
 
   const signal = useCallback(async (type: string, payload: unknown) => {
     await fetch('/api/signal', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -34,14 +35,26 @@ export default function SendClient({ sessionId }: { sessionId: string }) {
     ch.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.type === 'hash-verified') setStatus('done'); } catch {} };
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    for (const c of iceBufferRef.current) { try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch {} }
+    iceBufferRef.current = [];
     signal('offer', offer);
   }, [signal]);
 
   const handleSig = useCallback(async (msg: { type: string; payload: unknown }) => {
     if (msg.type === 'pair-approve') await startRTC();
     else if (msg.type === 'pair-reject') { setError('rejected'); setStatus('error'); }
-    else if (msg.type === 'answer' && pcRef.current) await pcRef.current.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
-    else if (msg.type === 'ice-candidate' && pcRef.current) await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit));
+    else if (msg.type === 'answer' && pcRef.current) {
+      await pcRef.current.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
+      for (const c of iceBufferRef.current) { try { await pcRef.current.addIceCandidate(new RTCIceCandidate(c)); } catch {} }
+      iceBufferRef.current = [];
+    }
+    else if (msg.type === 'ice-candidate') {
+      if (pcRef.current && pcRef.current.remoteDescription) {
+        await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit)).catch(() => {});
+      } else {
+        iceBufferRef.current.push(msg.payload);
+      }
+    }
   }, [startRTC]);
 
   const poll = useCallback(async () => {

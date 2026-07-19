@@ -72,20 +72,43 @@ export async function pollSignals(sessionId: string, since?: number): Promise<{ 
   }
 }
 
+export async function checkNameTaken(name: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/presence?taken=${encodeURIComponent(name)}`, { signal: AbortSignal.timeout(3000) });
+    const json = await res.json();
+    return json.ok && json.taken === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchNearbyDevices(city: string, country: string, countryCode: string): Promise<any[]> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/presence?city=${encodeURIComponent(city)}&country=${encodeURIComponent(country)}&countryCode=${encodeURIComponent(countryCode)}`, { signal: AbortSignal.timeout(5000) });
+    const json = await res.json();
+    return json.ok ? (json.receivers || []) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchGeoLocation(): Promise<{ city: string; region: string; country: string; countryCode: string }> {
   const services = [
     'https://ipapi.co/json/',
     'https://ipwho.is/',
     'https://ipinfo.io/json',
+    'https://ip-api.com/json/',
+    'https://freeipapi.com/api/json/',
+    'https://api.ip.sb/geoip',
   ];
   for (const url of services) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
       const d = await res.json();
       const city = d.city || d.region || '';
-      const region = d.region || d.region_name || '';
-      const country = d.country_name || d.country || '';
-      const countryCode = d.country_code || d.country || '';
+      const region = d.region || d.region_name || d.regionName || '';
+      const country = d.country_name || d.country || d.countryName || '';
+      const countryCode = d.country_code || d.countryCode || d.country || '';
       if (city && country) return { city, region, country, countryCode };
     } catch {}
   }
