@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 
 interface Receiver { deviceId: string; displayName: string; deviceType: string; os: string; ready: boolean }
 
-export default function SendPage({ params }: { params: { sessionId: string } }) {
-  const { sessionId } = params;
+export default function SendPage() {
+  const { sessionId } = useParams<{ sessionId: string }>();
   const [receiver, setReceiver] = useState<Receiver | null>(null);
   const [status, setStatus] = useState<'loading' | 'pairing' | 'connected' | 'sending' | 'done' | 'error'>('loading');
   const [progress, setProgress] = useState(0);

@@ -10,7 +10,7 @@ export function generateSessionId(): string {
 }
 
 export function generatePairingCode(): string {
-  const code = randomBytes(3).readUIntBE(0, 3);
+  const code = randomBytes(3).readUIntBE(0, 3) % 1000000;
   const formatted = code.toString().padStart(6, '0');
   return `${formatted.slice(0, 3)} ${formatted.slice(3)}`;
 }
