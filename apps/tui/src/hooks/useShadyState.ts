@@ -9,7 +9,7 @@ import {
   detectDeviceType,
   detectOS,
 } from '../lib/crypto.js';
-import type { LogEntry, PairingRequest, ActiveTransfer, ActiveTransferFile } from '../types.js';
+import type { LogEntry, PairingRequest } from '../types.js';
 
 const HEARTBEAT_INTERVAL = 5000;
 const SIGNAL_POLL_INTERVAL = 1000;
@@ -21,7 +21,6 @@ export function useShadyState(offline: boolean) {
     displayName: generateDisplayName(),
     sessionId: generateSessionId(),
     publicKey: `ed25519:${generateQrSecret().slice(0, 64)}`,
-    createdAt: Date.now(),
   }));
 
   const [sessionExpiresAt, setSessionExpiresAt] = useState(Date.now() + SESSION_DURATION);
@@ -29,20 +28,18 @@ export function useShadyState(offline: boolean) {
   const [pairingCode, setPairingCode] = useState(generatePairingCode);
   const [isConnected, setIsConnected] = useState(false);
   const [pendingRequest, setPendingRequest] = useState<PairingRequest | null>(null);
-  const [activeTransfers, setActiveTransfers] = useState<ActiveTransfer[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [lastSignalTimestamp, setLastSignalTimestamp] = useState(0);
   const lastSignalRef = useRef(0);
 
   const addLog = useCallback((type: LogEntry['type'], message: string) => {
-    setLogs((prev) => [...prev, { id: `log-${Date.now()}-${Math.random()}`, timestamp: Date.now(), type, message }]);
+    setLogs((prev) => [...prev.slice(-20), { id: `log-${Date.now()}-${Math.random()}`, timestamp: Date.now(), type, message }]);
   }, []);
 
   const refreshQr = useCallback(() => {
     setQrSecret(generateQrSecret());
     setPairingCode(generatePairingCode());
     setSessionExpiresAt(Date.now() + SESSION_DURATION);
-    addLog('info', 'QR code regenerated');
+    addLog('info', 'QR refreshed');
   }, [addLog]);
 
   const approveRequest = useCallback(() => {
@@ -59,36 +56,26 @@ export function useShadyState(offline: boolean) {
     addLog('warning', `Rejected: ${pendingRequest.senderName}`);
   }, [pendingRequest, identity.deviceId, addLog]);
 
-  const toggleVisibility = useCallback(() => {
-    addLog('info', 'Visibility toggled (press O to cycle)');
-  }, [addLog]);
-
   useEffect(() => {
     if (offline) {
-      addLog('info', 'Offline mode — no backend connection');
+      addLog('info', 'Offline mode — no backend');
       return;
     }
 
-    addLog('info', `Receiver started: ${identity.displayName}`);
-    addLog('info', `Session: ${identity.sessionId}`);
+    addLog('info', `Ready: ${identity.displayName}`);
 
-    const heartbeatInterval = setInterval(() => {
+    const heartbeat = setInterval(() => {
       sendHeartbeat({
         deviceId: identity.deviceId,
         displayName: identity.displayName,
         publicKey: identity.publicKey,
         sessionId: identity.sessionId,
         protocolVersion: '1.0.0',
-        capabilities: ['files', 'clipboard', 'folders'],
+        capabilities: ['files'],
         os: detectOS(),
         deviceType: detectDeviceType(),
         visibility: 'qr-only',
-      }).then((ok) => {
-        setIsConnected(ok);
-        if (ok && logs.length <= 2) {
-          addLog('success', 'Connected to discovery service');
-        }
-      });
+      }).then((ok) => setIsConnected(ok));
     }, HEARTBEAT_INTERVAL);
 
     sendHeartbeat({
@@ -97,63 +84,51 @@ export function useShadyState(offline: boolean) {
       publicKey: identity.publicKey,
       sessionId: identity.sessionId,
       protocolVersion: '1.0.0',
-      capabilities: ['files', 'clipboard', 'folders'],
+      capabilities: ['files'],
       os: detectOS(),
       deviceType: detectDeviceType(),
       visibility: 'qr-only',
     }).then((ok) => {
       setIsConnected(ok);
-      if (ok) addLog('success', 'Registered with discovery service');
-      else addLog('error', 'Failed to register — check internet connection');
+      addLog(ok ? 'success' : 'error', ok ? 'Connected' : 'Connection failed');
     });
 
     return () => {
-      clearInterval(heartbeatInterval);
+      clearInterval(heartbeat);
       unregisterDevice(identity.deviceId);
-      addLog('info', 'Unregistered from discovery service');
     };
   }, [offline, identity.deviceId]);
 
   useEffect(() => {
     if (offline) return;
 
-    const pollInterval = setInterval(async () => {
+    const poll = setInterval(async () => {
       const messages = await pollSignals(identity.sessionId, lastSignalRef.current);
       for (const msg of messages) {
         lastSignalRef.current = Math.max(lastSignalRef.current, msg.timestamp);
 
         if (msg.type === 'pair-request') {
-          const payload = msg.payload as {
-            senderName: string;
-            senderDeviceType: string;
-            senderBrowser: string;
-            senderOS: string;
-          };
-          const code = pairingCode;
+          const p = msg.payload as { senderName: string; senderDeviceType: string; senderBrowser: string; senderOS: string };
           setPendingRequest({
             sessionId: identity.sessionId,
-            senderName: payload.senderName || 'Unknown Device',
-            senderDeviceType: (payload.senderDeviceType as any) || 'unknown',
-            senderBrowser: payload.senderBrowser || 'Unknown',
-            senderOS: payload.senderOS || 'Unknown',
-            pairingCode: code,
+            senderName: p.senderName || 'Unknown',
+            senderDeviceType: (p.senderDeviceType as any) || 'unknown',
+            senderBrowser: p.senderBrowser || 'Unknown',
+            senderOS: p.senderOS || 'Unknown',
+            pairingCode,
             timestamp: msg.timestamp,
           });
-          addLog('warning', `Connection request from ${payload.senderName}`);
-        }
-
-        if (msg.type === 'offer') {
-          addLog('info', 'WebRTC offer received — establishing data channel');
+          addLog('warning', `Request from ${p.senderName}`);
         }
 
         if (msg.type === 'cancel') {
           setPendingRequest(null);
-          addLog('warning', 'Sender cancelled the request');
+          addLog('warning', 'Sender cancelled');
         }
       }
     }, SIGNAL_POLL_INTERVAL);
 
-    return () => clearInterval(pollInterval);
+    return () => clearInterval(poll);
   }, [offline, identity.sessionId, pairingCode, addLog]);
 
   useEffect(() => {
@@ -176,13 +151,10 @@ export function useShadyState(offline: boolean) {
     pairingCode,
     isConnected,
     pendingRequest,
-    activeTransfers,
-    setActiveTransfers,
     logs,
     addLog,
     refreshQr,
     approveRequest,
     rejectRequest,
-    toggleVisibility,
   };
 }

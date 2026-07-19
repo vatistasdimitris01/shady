@@ -12,10 +12,20 @@
   --shady-text: #e5e5e5;
 }
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background: var(--shady-bg);
   color: var(--shady-text);
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+input, button, a {
+  touch-action: manipulation;
 }
 
 @keyframes pulse-dot {
@@ -27,15 +37,6 @@ body {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
-@keyframes slide-in {
-  from { transform: translateY(10px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-.animate-slide-in {
-  animation: slide-in 0.3s ease-out;
-}
-
 .grid-bg {
   background-image:
     linear-gradient(rgba(163, 230, 53, 0.03) 1px, transparent 1px),
@@ -43,6 +44,32 @@ body {
   background-size: 40px 40px;
 }
 
-.progress-bar {
-  background: linear-gradient(90deg, var(--shady-accent-dim), var(--shady-accent));
+/* QR Scanner overrides */
+#qr-reader {
+  border: none !important;
+}
+
+#qr-reader video {
+  object-fit: cover !important;
+  border-radius: 0 !important;
+}
+
+#qr-reader img[alt="Info icon"] {
+  display: none !important;
+}
+
+#qr-reader__scan_region {
+  min-height: 200px !important;
+}
+
+#qr-reader__dashboard {
+  display: none !important;
+}
+
+/* Safe area insets for notch devices */
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

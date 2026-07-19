@@ -92,15 +92,14 @@ export default function SetupPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-shady-accent mb-3">Setup Guide</h1>
-        <p className="text-shady-muted text-lg">Get SHADY running in under 2 minutes.</p>
+    <div className="max-w-lg mx-auto px-4 py-8 sm:py-12">
+      <div className="text-center mb-8">
+        <h1 className="text-2xl sm:text-4xl font-bold text-shady-accent mb-2">Setup Guide</h1>
+        <p className="text-shady-muted text-sm sm:text-lg">Get running in under 2 minutes.</p>
       </div>
 
-      {/* Quick install by OS */}
-      <div className="bg-shady-surface border border-shady-border rounded-xl p-6 mb-8">
-        <h2 className="text-sm font-bold text-shady-accent mb-4 uppercase tracking-wider">Quick Install</h2>
+      <div className="bg-shady-surface border border-shady-border rounded-xl p-4 sm:p-6 mb-6">
+        <h2 className="text-xs sm:text-sm font-bold text-shady-accent mb-3 uppercase tracking-wider">Quick Install</h2>
         <div className="flex gap-2 mb-4">
           {OS_INSTRUCTIONS.map((o, i) => (
             <button
@@ -181,26 +180,17 @@ export default function SetupPage() {
       </div>
 
       {/* Keyboard shortcuts */}
-      <div className="bg-shady-surface border border-shady-border rounded-xl p-6 mb-8">
-        <h2 className="text-sm font-bold text-shady-accent mb-4 uppercase tracking-wider">TUI Keyboard Shortcuts</h2>
-        <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
+      <div className="bg-shady-surface border border-shady-border rounded-xl p-4 sm:p-6 mb-6">
+        <h2 className="text-xs sm:text-sm font-bold text-shady-accent mb-3 uppercase tracking-wider">Keyboard Shortcuts</h2>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs sm:text-sm">
           {[
             ['A', 'Accept connection', 'green'],
             ['R', 'Reject connection', 'red'],
-            ['S', 'Send file', 'cyan'],
-            ['F', 'Send folder', 'cyan'],
-            ['C', 'Send clipboard', 'cyan'],
-            ['Q', 'Regenerate QR code', 'yellow'],
-            ['O', 'Toggle online/offline', 'blue'],
-            ['N', 'Rename receiver', 'magenta'],
-            ['P', 'Pause transfer', 'yellow'],
-            ['X', 'Cancel transfer', 'red'],
-            ['D', 'Network diagnostics', 'gray'],
-            ['?', 'Show help', 'white'],
-            ['Ctrl+C', 'Exit safely', 'red'],
+            ['Q', 'Refresh QR code', 'yellow'],
+            ['Ctrl+C', 'Quit', 'red'],
           ].map(([key, desc, color]) => (
-            <div key={key as string} className="flex items-center gap-3 py-1">
-              <kbd className={`bg-shady-bg border border-shady-border rounded px-2 py-0.5 text-xs font-mono font-bold text-${color} w-16 text-center`}>
+            <div key={key as string} className="flex items-center gap-2 py-1">
+              <kbd className={`bg-shady-bg border border-shady-border rounded px-2 py-0.5 text-xs font-mono font-bold text-${color} w-14 text-center shrink-0`}>
                 {key}
               </kbd>
               <span className="text-shady-muted">{desc}</span>

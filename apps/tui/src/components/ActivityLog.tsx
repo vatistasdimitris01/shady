@@ -8,27 +8,18 @@ interface ActivityLogProps {
   maxEntries?: number;
 }
 
-const ICONS: Record<string, string> = { info: 'ℹ', success: '✓', warning: '!', error: '✗', transfer: '↓' };
-const COLORS: Record<string, string> = { info: 'white', success: 'green', warning: 'yellow', error: 'red', transfer: 'cyan' };
+const COLORS: Record<string, string> = { info: 'white', success: 'green', warning: 'yellow', error: 'red' };
 
-export const ActivityLog: React.FC<ActivityLogProps> = ({ entries, maxEntries = 6 }) => {
+export const ActivityLog: React.FC<ActivityLogProps> = ({ entries, maxEntries = 5 }) => {
   const display = entries.slice(-maxEntries);
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1}>
-      <Text bold color="gray">📋 Activity</Text>
-      <Box marginTop={1} flexDirection="column">
-        {display.length === 0 ? (
-          <Text dimColor>Waiting for activity...</Text>
-        ) : (
-          display.map((e) => (
-            <Box key={e.id}>
-              <Text dimColor>{getTimeSince(e.timestamp)}</Text>
-              <Text> </Text>
-              <Text color={COLORS[e.type]}>{ICONS[e.type]} {e.message}</Text>
-            </Box>
-          ))
-        )}
-      </Box>
+    <Box flexDirection="column" marginTop={1}>
+      {display.map((e) => (
+        <Box key={e.id}>
+          <Text dimColor>{getTimeSince(e.timestamp)} </Text>
+          <Text color={COLORS[e.type]}>{e.message}</Text>
+        </Box>
+      ))}
     </Box>
   );
 };
